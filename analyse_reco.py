@@ -465,35 +465,14 @@ def run(inputlist, outname, ncpu):
         mask_matching_matrix = matrix_cell2mc_perEvent[row_ind, col_ind] > 0
         row_ind = row_ind[mask_matching_matrix]
         col_ind = col_ind[mask_matching_matrix]
+        # Print info of matched particles
         # A matrix of matched particles from links to cells
         matched_cell = numpy.zeros(numpy.shape(matrix_cell2mc_perEvent))
         matched_cell[row_ind, col_ind] = 1
-        # Print info of matched particles
-        # Matching based on cells
-        for r,c in zip(row_ind,col_ind):
-            if c == len(matrix_cell2mc_perEvent[0])-1:
-                print(f"Reco particle {r} is built of fake cells!")
-            else:
-                print(f"Reco particle {r} matched with MC ID {c} from the cell-particle links:")
-                print(f"     {list_reco_pdg[int(i)][int(r)]}  <->  {list_mc_pdg[int(i)][int(c)]} ")
-                print(f"     {list_reco_E[int(i)][int(r)]} GeV  <-> {list_mc_E[int(i)][int(c)]} GeV")
-        # Print info of reco particles that are not linked (matched)
-        for row in range(numpy.shape(matched_cell)[0]):
-            if numpy.sum(matched_cell[row]) == 0:
-                print(f"Reco particle {row} has no MC link")
-        # for k in range(map_cell2mc[i][j].size() - 1): # all possible links to MC
-        #     if map_cell2mc[i][j][k] > 0:
-        #         print(f"Event {i} -> reco particle {j}  has {map_cell2mc[i][j][k]} cells linked to MC ID {k}")
-        # if map_cell2mc[i][j][map_cell2mc[i][j].size() - 1] > 0:
-        #     print(f"Event {i} -> reco particle {j}  has {map_cell2mc[i][j][map_cell2mc[i][j].size() - 1]} fake cells")
         # A matrix of matched particles from links to cluster
         matched_cluster = numpy.zeros(numpy.shape(matrix_cell2mc_perEvent))
-        # Matching based on cluster
         for rec in range(len(map_cluster2mc[i])):
             matched_cluster[map_cluster2mc[i][rec].first][map_cluster2mc[i][rec].second] = 1
-            print(f"Reco particle {map_cluster2mc[i][rec].first} matched with MC {map_cluster2mc[i][rec].second} from the cluster-particle link:")
-            print(f"     {list_reco_pdg[i][int(map_cluster2mc[i][rec].first)]}  <->  {list_mc_pdg[i][int(map_cluster2mc[i][rec].second)]} ")
-            print(f"     {list_reco_E[i][int(map_cluster2mc[i][rec].first)]} GeV  <->  {list_mc_E[i][int(map_cluster2mc[i][rec].second)]} GeV")
         if (matched_cell == matched_cluster).all():
             print("\033[38;5;28mBoth linkes match!\033[0m")
         else:
