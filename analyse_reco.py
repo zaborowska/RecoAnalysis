@@ -457,9 +457,10 @@ def run(inputlist, outname, ncpu):
         print(f"\033[1m\033[4mEVENT {i}\033[0m")
         # investigate per-event matrix with information of number of cells
         # each row represents a reco particle, column an MC particle, with the last column corresponding to a "fake"
-        # For each reco-MC pair check ratio of intersection to their union
-        # TODO apply the same threshold as MLPF, so consider only >=0.25
+        # For each reco-MC pair check ratio of intersection to their union (based on num cells)
+        iou_threshold = 0.25 # as in MLPF
         matrix_cell2mc_perEvent = numpy.asarray(map_cell2mc[i])
+        matrix_cell2mc_perEvent[matrix_cell2mc_perEvent < iou_threshold] = 0
         row_ind, col_ind = linear_sum_assignment(matrix_cell2mc_perEvent, maximize=True)
         # Borrowed from MLPF: Next three lines remove solutions where there is a shower that is not associated and iou it's zero (or less than threshold)
         mask_matching_matrix = matrix_cell2mc_perEvent[row_ind, col_ind] > 0
