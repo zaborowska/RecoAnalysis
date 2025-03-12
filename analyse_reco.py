@@ -47,40 +47,18 @@ def run(inputlist, outname, ncpu):
       map_reco_all[id_reco[i]].emplace_back(std::make_pair(id_mc[i], links[i].weight));
       linked_reco[id_reco[i]] = true;
     }
-    // TODO eliminate following loop and move it above
-    //std::cout << "EVENT" << std::endl;
-    //std::cout << "debug reco ids = [ ";
-    //for(auto dbg_r: id_reco) std::cout << dbg_r << "  ";
-    //std::cout << " ] " << std::endl;
-    //std::cout << "debug MC ids = [ ";
-    //for(auto dbg_m: id_mc) std::cout << dbg_m << "  ";
-    //std::cout << " ] " << std::endl;
     for(auto recPart: map_reco_all) {
-    //  std::cout << "Reco particle id  " <<recPart.first << " PDG : " << reco[recPart.first].PDG << " with E " << reco[recPart.first].energy << " is linked to : " << std::endl;
-    int id_maxWeight = recPart.second[0].first;
-    double maxWeight = recPart.second[0].second;
+      int id_maxWeight = recPart.second[0].first;
+      double maxWeight = recPart.second[0].second;
       for(auto v: recPart.second) {
         auto m = mc[v.first];
-        //std::cout << "   - MC particle id " << v.first << " PDG : " << m.PDG << " with E " << sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z) << " WEIGHT " << v.second << std::endl;
         if(v.second > maxWeight) {
           maxWeight = v.second;
           id_maxWeight = v.first;
-          //std::cout << "              New larger weight: " << maxWeight << std::endl;
-        }// else {std::cout << "            Max weight unchanged: " << maxWeight << std::endl;}
+        }
       }
-    map_reco.push_back(std::make_pair(recPart.first,id_maxWeight));
+      map_reco.push_back(std::make_pair(recPart.first,id_maxWeight));
     }
-    //   for(auto item: map_reco) std::cout << "Reco particle " << item.first << " mapped to MC " << item.second << std::endl;
-/*
-    ROOT::VecOps::RVec<std::pair<edm4hep::ReconstructedParticleData, edm4hep::MCParticleData>> result;
-    for(size_t i=0; i< reco.size(); i++) {
-      if(!linked_reco[i]) {
-         std::cout << "Reco particle with ID " << i << " and  PDG : " << reco[i].PDG << " with E " << reco[i].energy << " is not linked." << std::endl;
-      } else {
-         result[i] = std::make_pair(reco[i], mc[map_reco[i]]);
-         std::cout << "Reco to MC mapping: ID " << i << " <-> " << map_reco[i] << std::endl;
-      }
-    }*/
     return map_reco;
     }""")
 
@@ -316,14 +294,6 @@ def run(inputlist, outname, ncpu):
 
     ## Analyse at cell level
     ROOT.gInterpreter.Declare("""
-        template<typename T> ROOT::VecOps::RVec<T> myRange(ROOT::VecOps::RVec<T>& vec, std::size_t begin, std::size_t end){
-            ROOT::VecOps::RVec<T> ret;
-            ret.reserve(end - begin);
-            for (auto i = begin; i < end; ++i)
-                ret.push_back(vec[i]);
-            return ret;
-        }""")
-    ROOT.gInterpreter.Declare("""
     ROOT::VecOps::RVec<int> getNumCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
                                         ROOT::VecOps::RVec<edm4hep::ClusterData> clusters,
                                         ROOT::VecOps::RVec<podio::ObjectID> cells) {
@@ -382,9 +352,6 @@ def run(inputlist, outname, ncpu):
     for(auto link: map_cell2MC) {
          per_mc_numCells[link.second] ++;
     }
-    //std::cout << " Num cells per MC = [ ";
-    //for(auto ncell: per_mc_numCells) std::cout << ncell << ", ";
-    //std::cout << "]" << std::endl;
 
     // Get number of cells per each reco particle for normalisation
     std::vector<int> per_reco_numCells;
@@ -394,9 +361,6 @@ def run(inputlist, outname, ncpu):
             per_reco_numCells[i] += (clusters[j].hits_end - clusters[j].hits_begin);
          }
     }
-    //std::cout << " Num cells per Reco = [ ";
-    //for(auto ncell: per_reco_numCells) std::cout << ncell << ", ";
-    //std::cout << "]" << std::endl;
 
     // For each of the reco particles
     for (size_t i=0; i<reco.size();i++) {
@@ -475,7 +439,7 @@ def run(inputlist, outname, ncpu):
         for rec in range(len(map_cluster2mc[i])):
             matched_cluster[map_cluster2mc[i][rec].first][map_cluster2mc[i][rec].second] = 1
         if (matched_cell == matched_cluster).all():
-            print("\033[38;5;28mBoth linkes match!\033[0m")
+            print("\033[38;5;28mAll linkes match!\033[0m")
         else:
             print("\033[38;5;1mCell/cluster link discrepancy!\033[0m")
             array_to_print=[]
