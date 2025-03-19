@@ -21,6 +21,7 @@ ROOT.gInterpreter.Declare("#include <edm4hep/ReconstructedParticleData.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/RecoMCParticleLinkCollection.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/CaloHitMCParticleLinkCollection.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/ClusterData.h>")
+ROOT.gInterpreter.Declare("#include <edm4hep/RecoMCParticleLinkData.h>")
 ROOT.gStyle.SetOptStat(0000)
 #__________________________________________________________
 def run(inputlist, outname, ncpu):
