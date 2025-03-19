@@ -11,6 +11,7 @@ parser.add_argument('-o', '--outfile', type=str, default="showerAnalysis.root", 
 parser.add_argument('-n', '--ncpus', type=int, default=2, help='Number of CPUs to use in analysis')
 parser.add_argument('--trueE', action='store_true', help='Fit e res around true particle energy taken a the first MC particle in the list of particles, a way to go if the default hist mean fails')
 parser.add_argument('--interactive', action='store_true', help='Pause to inspect a canvas')
+parser.add_argument('--verbose', action='store_true', help='Verbose output for debugging')
 args = parser.parse_args()
 
 ROOT.gSystem.Load("libedm4hep")
@@ -418,8 +419,13 @@ def run(inputlist, outname, ncpu):
     list_mc_pdg = df_reco2mc_links.AsNumpy(columns=["MCPDG"])["MCPDG"]
     list_mc_E = df_reco2mc_links.AsNumpy(columns=["MCEnergy"])["MCEnergy"]
     map_cluster2mc = df_reco2mc_links.AsNumpy(columns=["recoMCpairs"])["recoMCpairs"]
-    for i in range(0,50): # N event
-        print(f"\033[1m\033[4mEVENT {i}\033[0m")
+    counter_match_all_cell_cluster_links = 0
+    list_mismatch_cell_cluster_links = []
+    for i in range( len(list_reco_E)): # N event
+        if args.verbose:
+            print(f"\033[1m\033[4mEVENT {i}\033[0m")
+        if len(list_reco_E[i]) == 0:
+            continue
         # investigate per-event matrix with information of number of cells
         # each row represents a reco particle, column an MC particle, with the last column corresponding to a "fake"
         # For each reco-MC pair check ratio of intersection to their union (based on num cells)
@@ -440,30 +446,36 @@ def run(inputlist, outname, ncpu):
         for rec in range(len(map_cluster2mc[i])):
             matched_cluster[map_cluster2mc[i][rec].first][map_cluster2mc[i][rec].second] = 1
         if (matched_cell == matched_cluster).all():
-            print("\033[38;5;28mAll linkes match!\033[0m")
+            if args.verbose:
+                print("\033[38;5;28mAll linkes match!\033[0m")
+            counter_match_all_cell_cluster_links += 1
         else:
-            print("\033[38;5;1mCell/cluster link discrepancy!\033[0m")
-            array_to_print=[]
-            header_to_print = [""]
-            mc_threshold = 0.1 #GeV
-            below_threshold = 0
-            for r in range(numpy.shape(matched_cell)[0]):
-                row_to_print = [f"{list_reco_pdg[i][int(map_cluster2mc[i][r].first)]}, {list_reco_E[i][int(map_cluster2mc[i][r].first)]:.1f} GeV"]
-                for c in range(numpy.shape(matched_cell)[1] - 1): # -1 to ignore the "fakes"
-                    if list_mc_E[i][c] > mc_threshold:
-                        if matched_cell[r][c] == matched_cluster[r][c]:
-                            row_to_print.append( f" \033[38;5;28m{matched_cluster[r][c]:.0f}\033[0m ")
-                        else:
-                            row_to_print.append( f" \033[38;5;1m{matched_cell[r][c]:.0f}\033[0m(cell) \033[38;5;1m{matched_cluster[r][c]:.0f}\033[0m(cluster) ")
-                row_to_print.append("") # to display the MCs below threshold"
-                array_to_print.append(row_to_print)
-            for mc in range(len(list_mc_E[i])):
-                if list_mc_E[i][mc] > mc_threshold:
-                    header_to_print.append(f'{list_mc_pdg[i][mc]}, {list_mc_E[i][mc]:.1f} GeV')
-                else:
-                    below_threshold += 1
-            header_to_print.append(f"and {below_threshold} MCs < {mc_threshold:.1f} GeV")
-            print(tabulate(array_to_print, headers=header_to_print))
+            list_mismatch_cell_cluster_links.append(i)
+            if args.verbose:
+                print("\033[38;5;1mCell/cluster link discrepancy!\033[0m")
+                array_to_print=[]
+                header_to_print = [""]
+                mc_threshold = 0.1 #GeV
+                below_threshold = 0
+                for r in range(numpy.shape(matched_cell)[0]):
+                    row_to_print = [f"{list_reco_pdg[i][int(map_cluster2mc[i][r].first)]}, {list_reco_E[i][int(map_cluster2mc[i][r].first)]:.1f} GeV"]
+                    for c in range(numpy.shape(matched_cell)[1] - 1): # -1 to ignore the "fakes"
+                        if list_mc_E[i][c] > mc_threshold:
+                            if matched_cell[r][c] == matched_cluster[r][c]:
+                                row_to_print.append( f" \033[38;5;28m{matched_cluster[r][c]:.0f}\033[0m ")
+                            else:
+                                row_to_print.append( f" \033[38;5;1m{matched_cell[r][c]:.0f}\033[0m(cell) \033[38;5;1m{matched_cluster[r][c]:.0f}\033[0m(cluster) ")
+                    row_to_print.append("") # to display the MCs below threshold"
+                    array_to_print.append(row_to_print)
+                for mc in range(len(list_mc_E[i])):
+                    if list_mc_E[i][mc] > mc_threshold:
+                        header_to_print.append(f'{list_mc_pdg[i][mc]}, {list_mc_E[i][mc]:.1f} GeV')
+                    else:
+                        below_threshold += 1
+                header_to_print.append(f"and {below_threshold} MCs < {mc_threshold:.1f} GeV")
+                print(tabulate(array_to_print, headers=header_to_print))
+
+    print(f"Ratio of events with identical links between clusters and cells: {counter_match_all_cell_cluster_links/len(list_reco_E)}")
 
     # TODO Compare above links with those from Pandora
 
