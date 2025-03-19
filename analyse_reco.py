@@ -49,17 +49,37 @@ def run(inputlist, outname, ncpu):
       map_reco_all[id_reco[i]].emplace_back(std::make_pair(id_mc[i], links[i].weight));
       linked_reco[id_reco[i]] = true;
     }
+    std::vector<int> neutrals{22,2112,130,311};
     for(auto recPart: map_reco_all) {
       int id_maxWeight = recPart.second[0].first;
-      double maxWeight = recPart.second[0].second;
+      int maxWeight = -1;
+      bool ifNeutral = false;
+      // decide which weight to take based on PDG of reco particle (charged/neutral)
+      int recoPDG = reco[recPart.first].PDG;
+      if (find(neutrals.begin(), neutrals.end(), recoPDG) != neutrals.end()) {
+         ifNeutral = true;
+      }
       for(auto v: recPart.second) {
         auto m = mc[v.first];
-        if(v.second > maxWeight) {
-          maxWeight = v.second;
+        // RecoMCTruthLinker defines Pandora weight as  weight = 10000*calo weight+track weight (weights in permill)
+        // https://github.com/iLCSoft/MarlinReco/blob/eb15b0d7a864fed217327fb846cec600073a60ff/Analysis/RecoMCTruthLink/src/RecoMCTruthLinker.cc#L202
+        int current_weight = -1;
+        if (ifNeutral)
+            current_weight = int(v.second / 10000); // calo weight
+        else
+            current_weight = int(v.second) % 10000; // track_weight
+        if (ifNeutral)
+           std::cout << "   - MC particle id " << v.first << " PDG : " << m.PDG << " vs reco (NEUTRAL) " << reco[recPart.first].PDG << " with E " << sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z) << " WEIGHT taking calo " << int(v.second / 10000) <<  " vs (track) " << int(v.second) % 10000 << " %%." << std::endl;
+        else
+           std::cout << "   - MC particle id " << v.first << " PDG : " << m.PDG << " vs reco (CHARGED) " << reco[recPart.first].PDG << " with E " << sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z) << " WEIGHT taking track " << int(v.second) % 10000  <<  " vs (calo) " << int(v.second / 10000)<< " %%." << std::endl;
+        if(current_weight > maxWeight) {
+          maxWeight = current_weight;
           id_maxWeight = v.first;
         }
       }
-      map_reco.push_back(std::make_pair(recPart.first,id_maxWeight));
+      // Apply threshold on weight in units of permile
+      if(maxWeight > 500)
+         map_reco.push_back(std::make_pair(recPart.first,id_maxWeight));
     }
     return map_reco;
     }""")
