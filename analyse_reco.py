@@ -309,10 +309,12 @@ def run(inputlist, outname, ncpu):
     print("Done confusion for all links")
 
     # For total efficiency get the diagonal from PID confusion hist
-    total_highestE_efficiency = counter_highestE_passed / counter_highestE_links
-    total_efficiency = counter_passed / counter_links
-    print(f"Total efficiency (counted from the highest-energetic reco and MC particles): {total_highestE_efficiency}")
-    print(f"Total efficiency (counted from all the reco<->MC links): {total_efficiency}")
+    if counter_highestE_links > 0:
+        total_highestE_efficiency = counter_highestE_passed / counter_highestE_links
+        print(f"Total efficiency (counted from the highest-energetic reco and MC particles): {total_highestE_efficiency}")
+    if counter_links:
+        total_efficiency = counter_passed / counter_links
+        print(f"Total efficiency (counted from all the reco<->MC links): {total_efficiency}")
 
     ## Analyse at cell level
     ROOT.gInterpreter.Declare("""
@@ -401,7 +403,10 @@ def run(inputlist, outname, ncpu):
          }
          // iterate over all MCs to calculate intersection / union ratio:
          for (size_t m=0; m<num_mc;m++) {
-            per_reco_all_mcs[m] /= (per_mc_numCells[m] + per_reco_numCells[i]);
+            if((per_mc_numCells[m] + per_reco_numCells[i]) > 0)
+                per_reco_all_mcs[m] /= (per_mc_numCells[m] + per_reco_numCells[i]);
+            else
+                per_reco_all_mcs[m] = 0;
          }
          matrix_all_reco.push_back(per_reco_all_mcs);
     }
