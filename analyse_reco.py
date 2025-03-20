@@ -84,6 +84,10 @@ def run(inputlist, outname, ncpu):
     }
     return map_reco;
     }""")
+    ROOT.gInterpreter.Declare("""
+    float getEnergy(edm4hep::MCParticleData m) {
+       return sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z+m.mass*m.mass);
+    }""")
 
     ## Define links between Reco and MC particles
     ### Unlinked Reco particles are not here! TODO handle them as well
@@ -95,14 +99,14 @@ def run(inputlist, outname, ncpu):
          .Define("RecoSize","PandoraPFOs.size()")\
          .Define("MCSize","MCParticles.size()")\
          .Define("MCPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:MCParticles){result.push_back(m.PDG);} return result;")\
-         .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z));} return result;")\
+         .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
          .Define("recoPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:PandoraPFOs){result.push_back(m.PDG);} return result;")\
          .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
          .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
          .Define("recoMCpairs_size","recoMCpairs.size()")
     ### Define histograms of Delta (reco - MC)
     h_diffMomMag = df_reco2mc_links\
-         .Define("recoMCpairs_diffE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Mag() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Mag()); return result;")\
+         .Define("recoMCpairs_diffE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy - getEnergy(MCParticles[p.second])); return result;")\
          .Histo1D("recoMCpairs_diffE")
     h_diffTheta = df_reco2mc_links\
          .Define("recoMCpairs_diffTheta", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Theta()); return result;")\
@@ -124,7 +128,7 @@ def run(inputlist, outname, ncpu):
         .Define("sumEdep","sumEdepEcalBarrel+sumEdepEcalEndcap+sumEdepHcalBarrel+sumEdepHcalEndcap")
     h_simE = df_sim.Histo1D(("sumEdep", "energy distribution; Energy (GeV); Entries", 128, 0., 128.),"sumEdep")
     h_simEnergyRatio = df_sim\
-        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z));} return result;")\
+        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
         .Define("gunMC","eMC[0]")\
         .Define("ratio_sim","sumEdep/gunMC")\
         .Histo1D(("sumEdep", "energy ratio; #sum E_{cells}/E_{MC[0]} [linked only]; Entries", 128, 0., 1.2),"ratio_sim") # This histogram makes sense only for particle gun events
@@ -162,7 +166,7 @@ def run(inputlist, outname, ncpu):
         .Define("highestRecoE","reco[0].first")\
         .Histo1D("highestRecoE")
     h_recoHighestEnergyRatio = df_reco\
-        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z));} return result;")\
+        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
         .Define("ratio_reco","reco[0].first/eMC[0]")\
         .Histo1D("ratio_reco")
     ## reco part
@@ -196,7 +200,7 @@ def run(inputlist, outname, ncpu):
 
     # Multiplicities
     df_numMC = df\
-        .Define("MCEnergyAbove100MeV", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){auto mom = sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z); if(mom > 0.1) result.push_back(mom);} return result;")\
+        .Define("MCEnergyAbove100MeV", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){auto e = getEnergy(m); if(e > 0.1) result.push_back(e);} return result;")\
         .Define("numMC","return MCEnergyAbove100MeV.size()")\
         .Define("MCEnergyAboveFilter", f"ROOT::VecOps::RVec<float> result; for(auto& e:MCEnergyAbove100MeV){{ if(e > {filterEnergy_minThreshold} && e < {filterEnergy_maxThreshold}) result.push_back(e);}} return result;")\
         .Define("numMC_filteredE","return MCEnergyAboveFilter.size()")
