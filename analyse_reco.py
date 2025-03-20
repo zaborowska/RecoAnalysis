@@ -31,10 +31,15 @@ def run(inputlist, outname, ncpu):
     df = ROOT.RDataFrame("events", inputlist)
     print ("Initialization done")
 
-    ## Declare a function that returns links as IDs
-    ### TODO Fix and clean so that we do not need to pass actual particles, needed now only for printouts
+    ## Declare a function that returns links (reco-MC) as IDs
     ROOT.gInterpreter.Declare("""
-    ROOT::VecOps::RVec<std::pair<int,int>> getReco2MC_debug(ROOT::VecOps::RVec<int> id_reco,
+    // Get a vector of pairs linking reconstructed particle (pair.first) to an MC particle (pair.second)
+    // For each of the reconstructed particle a single highest weight link is chosen (single MC)
+    // However multiple reco particles may be linked to a single MC.
+    // Weights are assumed to come from PandoraPFA (1e5*calo_weight+track_weight).
+    // Based on reco PDG, either track_weight is taken (charged), or calo_weight (neutrals). The list of checked neutrals is not complete!
+    // Links with weight below 50% are not considered. This threshold may be tuned.
+    ROOT::VecOps::RVec<std::pair<int,int>> getMapReco2McFromClusters(ROOT::VecOps::RVec<int> id_reco,
                                              ROOT::VecOps::RVec<int> id_mc,
                                              ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
                                              ROOT::VecOps::RVec<edm4hep::MCParticleData> mc,
@@ -68,10 +73,6 @@ def run(inputlist, outname, ncpu):
             current_weight = int(v.second / 10000); // calo weight
         else
             current_weight = int(v.second) % 10000; // track_weight
-        if (ifNeutral)
-           std::cout << "   - MC particle id " << v.first << " PDG : " << m.PDG << " vs reco (NEUTRAL) " << reco[recPart.first].PDG << " with E " << sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z) << " WEIGHT taking calo " << int(v.second / 10000) <<  " vs (track) " << int(v.second) % 10000 << " %%." << std::endl;
-        else
-           std::cout << "   - MC particle id " << v.first << " PDG : " << m.PDG << " vs reco (CHARGED) " << reco[recPart.first].PDG << " with E " << sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z) << " WEIGHT taking track " << int(v.second) % 10000  <<  " vs (calo) " << int(v.second / 10000)<< " %%." << std::endl;
         if(current_weight > maxWeight) {
           maxWeight = current_weight;
           id_maxWeight = v.first;
@@ -97,7 +98,7 @@ def run(inputlist, outname, ncpu):
          .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(sqrt(m.momentum.x*m.momentum.x+m.momentum.y*m.momentum.y+m.momentum.z*m.momentum.z));} return result;")\
          .Define("recoPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:PandoraPFOs){result.push_back(m.PDG);} return result;")\
          .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
-         .Define("recoMCpairs","getReco2MC_debug(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
+         .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
          .Define("recoMCpairs_size","recoMCpairs.size()")
     ### Define histograms of Delta (reco - MC)
     h_diffMomMag = df_reco2mc_links\
@@ -334,11 +335,11 @@ def run(inputlist, outname, ncpu):
        return result;
     }""")
     ROOT.gInterpreter.Declare("""
-    // Get number of cells that are linked to MC particles per given reco particle
-    // return a vector (for all reco particles) of vectors (one per each reco particle) of number of cells linked to MC
-    // where index in the vector corresponds to MC ID, and the last entry corresponds to fake (unlinked) cells
-    // Consider also returning sum of cells energy or do an analog. fnc
-    ROOT::VecOps::RVec<std::vector<float>> getNumLinkedCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
+    // For all reco particles (rows) and all MC particles (columns) get a ratio of number of cells linked to each MC
+    // Calculated as ratio of intersection to union (of corresponding reco and MC particles).
+    // To compare with the implementation of MLPF:
+    // https://github.com/selvaggi/mlpf/blob/708747daf1c67c8ee8be9ce1dcb4485f5c8c6d55/src/layers/inference_oc.py#L992
+    ROOT::VecOps::RVec<std::vector<float>> getMatrixReco2McFromCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
                                              ROOT::VecOps::RVec<edm4hep::ClusterData> clusters,
                                              ROOT::VecOps::RVec<int> cluster_id_cells,
                                              ROOT::VecOps::RVec<edm4hep::CaloHitMCParticleLinkData> links,
@@ -414,6 +415,7 @@ def run(inputlist, outname, ncpu):
     }""")
 
     ROOT.gInterpreter.Declare("""
+    // Merge cells from different collections to facilitate further functions
     ROOT::VecOps::RVec<int> mergeCellID(ROOT::VecOps::RVec<podio::ObjectID> cells) {
        // Hardcoded map, TODO ensure it's actually read in from the metadata (f = ROOT.TFile(name)\ f.Get("podio_metadata")\ for i in t:\ names = i.events___idTable.names()\ ids = i.events___idTable.ids()\ And build map from names and ids
        std::map<int,std::string> map_collections = {{1265367388, "ECALBarrel"}, {2257282296, "ECALEndcap"}, {124629188, "HCALBarrel"}, {1286131593, "HCALEndcap"}, {1000433565, "HCALOther" }};
@@ -434,7 +436,7 @@ def run(inputlist, outname, ncpu):
     map_cell2mc = df.Define("CellIDInClusters","mergeCellID(_PandoraClusters_hits)")\
                .Define("MCIDLinked","ROOT::VecOps::RVec<int> result; for(auto l: _CalohitMCTruthLink_to) {result.emplace_back(l.index);} return result;")\
                .Define("CellIDLinked","mergeCellID(_CalohitMCTruthLink_from)")\
-               .Define("cellMCpairs","getNumLinkedCells(PandoraPFOs, PandoraClusters, CellIDInClusters, CalohitMCTruthLink, CellIDLinked, MCIDLinked, MCParticles)")\
+               .Define("cellMCpairs","getMatrixReco2McFromCells(PandoraPFOs, PandoraClusters, CellIDInClusters, CalohitMCTruthLink, CellIDLinked, MCIDLinked, MCParticles)")\
                .Define("cellMCpairs_size","cellMCpairs.size()")\
                .AsNumpy(columns=["cellMCpairs"])["cellMCpairs"]
     map_reco2mc_recoIDs = df_reco2mc_links.AsNumpy(columns=["RecoIDLinked"])["RecoIDLinked"]
