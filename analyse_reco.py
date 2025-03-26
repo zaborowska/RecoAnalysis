@@ -180,7 +180,7 @@ def run(inputlist, outname, ncpu):
         .Define("numLinks_filtered","return linkedEnergyRatioWithinFilter.size()")\
         .Histo1D(("numLinks_filtered", "Particle multiplicity; Multiplicity (filtered E); Entries", 32, -0.5, 31.5),"numLinks_filtered")
     # TODO check also number of links from cells
-    print("Done multiplicities. Starting with confusion matrices")
+    print("Done multiplicities. Starting with confusion matrices.")
 
     ## Confusion matrix and the projections
     map_pdgs = {13:0,-13:0,
@@ -197,8 +197,15 @@ def run(inputlist, outname, ncpu):
     h_filteredE_confusionCosTheta = ROOT.TH3F("h_filteredE_confusionCosTheta", "PID confusion (filtered E); Generated as; Reconstructed as;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
     h_filteredE_efficiencyEnergy = ROOT.TEfficiency("g_filteredE_efficiencyEnergy", "PID efficiency (filtered E); E(GeV); Efficiency", 32, 0, 128)
     h_filteredE_efficiencyCosTheta = ROOT.TEfficiency("g_filteredE_efficiencyCosTheta", "PID efficiency (filtered E); cos(#theta); Efficiency", 30, -1, 1)
-    for axis in h_filteredE_confusionEnergy.GetXaxis(), h_filteredE_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetXaxis(), h_filteredE_confusionCosTheta.GetYaxis()\
-        , h_filteredE_confusionEnergy.GetYaxis(), h_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetYaxis(), h_confusionCosTheta.GetYaxis():
+    h_cellMC_confusionEnergy = ROOT.TH3F("h_cellMC_confusionEnergy", "PID confusion;Generated as; Reconstructed as;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
+    h_cellMC_confusionCosTheta = ROOT.TH3F("h_cellMC_confusionCosTheta", "PID confusion vs cos(#theta); Generated as; Reconstructed as;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
+    h_cellMC_efficiencyEnergy = ROOT.TEfficiency("g_cellMC_efficiencyEnergy", "PID confusion efficiency; E(GeV); Efficiency", 32, 0, 128)
+    h_cellMC_efficiencyCosTheta = ROOT.TEfficiency("g_cellMC_efficiencyCosTheta", "PID efficiency; cos(#theta); Efficiency", 30, -1, 1)
+    for axis in h_confusionEnergy.GetXaxis(), h_confusionEnergy.GetYaxis(), h_confusionCosTheta.GetXaxis(), h_confusionCosTheta.GetYaxis()\
+        , h_filteredE_confusionEnergy.GetXaxis(), h_filteredE_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetXaxis(), h_filteredE_confusionCosTheta.GetYaxis()\
+        , h_cellMC_confusionEnergy.GetXaxis(), h_cellMC_confusionEnergy.GetYaxis(), h_cellMC_confusionCosTheta.GetXaxis(), h_cellMC_confusionCosTheta.GetYaxis()\
+        , h_efficiencyEnergy.GetYaxis(), h_efficiencyCosTheta.GetYaxis(), h_filteredE_efficiencyEnergy.GetYaxis(), h_filteredE_efficiencyCosTheta.GetYaxis()\
+        , h_cellMC_efficiencyEnergy.GetYaxis(), h_cellMC_efficiencyCosTheta.GetYaxis():
         for i, l in map_labels.items():
             axis.SetBinLabel(i+1, l)
             axis.SetLabelSize(0.05)
@@ -249,14 +256,7 @@ def run(inputlist, outname, ncpu):
     h_filteredE_confusionEProjection = h_filteredE_confusionEnergy.Project3D("xz")
     print("Done confusion for all links")
 
-    # For total efficiency
-    if counter_links:
-        total_efficiency = counter_passed / counter_links
-        filtered_efficiency = counter_filteredE_passed / counter_filteredE_links
-        print(f"Total efficiency (counted from all the reco<->MC links): {total_efficiency}")
-        print(f"Filtered energy efficiency (counted from the reco<->MC links that recunstruct energy within {recoResult_resolution/recoResult_mean*100:.1f}%): {filtered_efficiency}")
-
-    ## Analyse at cell level (cell-MC links)
+    ## Analyse links at cell level (cell-MC links) instead of taking them from clusters
     # WARNING: hardcoded collections correspond to FcceeCLDo2v07
     ROOT.gInterpreter.Declare("""
     // For all reco particles (rows) and all MC particles (columns) get a ratio of number of cells linked to each MC
@@ -338,7 +338,6 @@ def run(inputlist, outname, ncpu):
     }
     return matrix_all_reco;
     }""")
-
     ROOT.gInterpreter.Declare("""
     // Merge cells from different collections to facilitate further functions
     ROOT::VecOps::RVec<int> mergeCellID(ROOT::VecOps::RVec<podio::ObjectID> cells) {
@@ -391,6 +390,25 @@ def run(inputlist, outname, ncpu):
         matched_cluster = numpy.zeros(numpy.shape(matrix_cell2mc_perEvent))
         for rec in range(len(map_cluster2mc[i])):
             matched_cluster[map_cluster2mc[i][rec].first][map_cluster2mc[i][rec].second] = 1
+        # Fill in confusion matrices
+    # for event:
+    #   for link:
+    #      getMappedMC, MappedReco:
+    #        if arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] in map_pdgs:
+    #            currentMcPDG = map_pdgs[arrays_confusion["recoMCpairs_mcPDG"][iev][ilink]]
+    #        else:
+    #            currentMcPDG = 5 # others, check if not to extend map_pdgs
+    #        if arrays_confusion["recoMCpairs_recoPDG"][iev][ilink] in map_pdgs:
+    #            currentRecoPDG = map_pdgs[arrays_confusion["recoMCpairs_recoPDG"][iev][ilink]]
+    #        else:
+    #            currentRecoPDG = 5 # others, check if not to extend map_pdgs
+    #        and fill histograms:
+    #        h_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
+    #        h_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+    #        ifCorrectPID = arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] == arrays_confusion["recoMCpairs_recoPDG"][iev][ilink]
+    #        h_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
+    #        h_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+        # Compare individual cluster-level links to cell-level links
         if (matched_cell == matched_cluster).all():
             if args.verbose:
                 print("\033[38;5;28mAll linkes match!\033[0m")
@@ -423,7 +441,13 @@ def run(inputlist, outname, ncpu):
 
     print(f"Ratio of events with identical links between clusters and cells: {counter_match_all_cell_cluster_links/len(list_reco_E)}")
 
-    # TODO Compare above links with those from Pandora
+
+    # For total efficiency
+    if counter_links:
+        total_efficiency = counter_passed / counter_links
+        filtered_efficiency = counter_filteredE_passed / counter_filteredE_links
+        print(f"Total efficiency (counted from all the reco<->MC links): {total_efficiency}")
+        print(f"Filtered energy efficiency (counted from the reco<->MC links that recunstruct energy within {recoResult_resolution/recoResult_mean*100:.1f}%): {filtered_efficiency}")
 
     # Store
     # outfile = ROOT.TFile(outname, "RECREATE")
