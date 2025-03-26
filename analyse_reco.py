@@ -143,6 +143,27 @@ def run(inputlist, outname, ncpu):
     print(f"Filtered energy ratio from {filterEnergy_minThreshold} to {filterEnergy_maxThreshold}.")
 
     # Multiplicities
+    ROOT.gInterpreter.Declare("""
+    ROOT::VecOps::RVec<int> getNumCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
+                                        ROOT::VecOps::RVec<edm4hep::ClusterData> clusters,
+                                        ROOT::VecOps::RVec<podio::ObjectID> cells) {
+       ROOT::VecOps::RVec<int> result;
+       // For each of the reco particles
+       for (size_t i=0; i<reco.size();i++) {
+         // Sum over all clusters of that particle
+         float numCellsPerParticle = 0;
+         for (size_t j = reco[i].clusters_begin; j < reco[i].clusters_end; j++) {
+           numCellsPerParticle += (clusters[j].hits_end - clusters[j].hits_begin);
+         }
+         result.push_back(numCellsPerParticle);
+       }
+       return result;
+    }""")
+    df_clusters = df\
+        .Define("recoNumClusters", "ROOT::VecOps::RVec<int> result; for(auto& p:PandoraPFOs){result.push_back(p.clusters_end - p.clusters_begin);} return result;")
+    h_numClusters = df_clusters.Histo1D(("numRecoClusters", "Number of clusters per reco particle; Number of clusters; Entries", 16, -0.5, 15.5),"recoNumClusters")
+    df_cells = df.Define("recoNumCells", "getNumCells(PandoraPFOs, PandoraClusters, _PandoraClusters_hits)")
+    h_numCells = df_cells.Histo1D(("numRecoCells", "Number of cells per reco particle; Number of cells; Entries", 512, -0.5, 4095.5),"recoNumCells")
     h_numMC = df\
         .Define("MCEnergyAbove100MeV", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){auto e = getEnergy(m); if(e > 0.1) result.push_back(e);} return result;")\
         .Define("numMC","return MCEnergyAbove100MeV.size()")\
@@ -269,22 +290,6 @@ def run(inputlist, outname, ncpu):
 
     ## Analyse at cell level
     ROOT.gInterpreter.Declare("""
-    ROOT::VecOps::RVec<int> getNumCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
-                                        ROOT::VecOps::RVec<edm4hep::ClusterData> clusters,
-                                        ROOT::VecOps::RVec<podio::ObjectID> cells) {
-       ROOT::VecOps::RVec<int> result;
-       // For each of the reco particles
-       for (size_t i=0; i<reco.size();i++) {
-         // Sum over all clusters of that particle
-         float numCellsPerParticle = 0;
-         for (size_t j = reco[i].clusters_begin; j < reco[i].clusters_end; j++) {
-           numCellsPerParticle += (clusters[j].hits_end - clusters[j].hits_begin);
-         }
-         result.push_back(numCellsPerParticle);
-       }
-       return result;
-    }""")
-    ROOT.gInterpreter.Declare("""
     // For all reco particles (rows) and all MC particles (columns) get a ratio of number of cells linked to each MC
     // Calculated as ratio of intersection to union (of corresponding reco and MC particles).
     // To compare with the implementation of MLPF:
@@ -378,12 +383,6 @@ def run(inputlist, outname, ncpu):
        }
        return result;
     }""")
-
-    df_clusters = df\
-        .Define("recoNumClusters", "ROOT::VecOps::RVec<int> result; for(auto& p:PandoraPFOs){result.push_back(p.clusters_end - p.clusters_begin);} return result;")
-    h_numClusters = df_clusters.Histo1D(("numRecoClusters", "Number of clusters per reco particle; Number of clusters; Entries", 16, -0.5, 15.5),"recoNumClusters")
-    df_cells = df.Define("recoNumCells", "getNumCells(PandoraPFOs, PandoraClusters, _PandoraClusters_hits)")
-    h_numCells = df_cells.Histo1D(("numRecoCells", "Number of cells per reco particle; Number of cells; Entries", 512, -0.5, 4095.5),"recoNumCells")
     map_cell2mc = df.Define("CellIDInClusters","mergeCellID(_PandoraClusters_hits)")\
                .Define("MCIDLinked","ROOT::VecOps::RVec<int> result; for(auto l: _CalohitMCTruthLink_to) {result.emplace_back(l.index);} return result;")\
                .Define("CellIDLinked","mergeCellID(_CalohitMCTruthLink_from)")\
