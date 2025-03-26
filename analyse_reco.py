@@ -189,61 +189,28 @@ def run(inputlist, outname, ncpu):
                 2112:3,130:3,
                 2212:4,211:4,-211:4}
     map_labels = {0: "#mu", 1: "#gamma", 2: "e", 3: "NH", 4: "CH", 5: "other"}
-    h_highestE_confusionEnergy = ROOT.TH3F("h_highestE_confusionEnergy", "PID (highest-E MC and reco particles); Generated as; Reconstructed as;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
-    h_highestE_confusionCosTheta = ROOT.TH3F("h_highestE_confusionCosTheta", "PID  (highest-E MC and reco particles); Generated as; Reconstructed as;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
-    h_highestE_efficiencyEnergy = ROOT.TEfficiency("g_highestE_efficiencyEnergy", "PID efficiency  (highest-E MC and reco particles); E(GeV); Efficiency", 32,0, 128 )
-    h_highestE_efficiencyCosTheta = ROOT.TEfficiency("g_highestE_efficiencyCosTheta", "PID efficiency  (highest-E MC and reco particles); cos(#theta); Efficiency", 30, -1, 1)
-    h_confusionEnergy = ROOT.TH3F("h_confusionEnergy", "PID; Linked MC particle; Linked reco particle;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
-    h_confusionCosTheta = ROOT.TH3F("h_confusionCosTheta", "PID vs cos(#theta); Linked MC particle; Linked reco particle;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
-    h_efficiencyEnergy = ROOT.TEfficiency("g_efficiencyEnergy", "PID efficiency; E(GeV); Efficiency", 32, 0, 128)
+    h_confusionEnergy = ROOT.TH3F("h_confusionEnergy", "PID confusion;Generated as; Reconstructed as;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
+    h_confusionCosTheta = ROOT.TH3F("h_confusionCosTheta", "PID confusion vs cos(#theta); Generated as; Reconstructed as;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
+    h_efficiencyEnergy = ROOT.TEfficiency("g_efficiencyEnergy", "PID confusion efficiency; E(GeV); Efficiency", 32, 0, 128)
     h_efficiencyCosTheta = ROOT.TEfficiency("g_efficiencyCosTheta", "PID efficiency; cos(#theta); Efficiency", 30, -1, 1)
-    h_filteredE_confusionEnergy = ROOT.TH3F("h_filteredE_confusionEnergy", "PID (filtered E); Linked MC particle; Linked reco particle;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
-    h_filteredE_confusionCosTheta = ROOT.TH3F("h_filteredE_confusionCosTheta", "PID (filtered E); Linked MC particle; Linked reco particle;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
+    h_filteredE_confusionEnergy = ROOT.TH3F("h_filteredE_confusionEnergy", "PID confusion (filtered E); Generated as; Reconstructed as;E (GeV)", 6, -0.5,5.5, 6, -0.5, 5.5,32, 0, 128)
+    h_filteredE_confusionCosTheta = ROOT.TH3F("h_filteredE_confusionCosTheta", "PID confusion (filtered E); Generated as; Reconstructed as;cos(#theta)", 6, -0.5,5.5, 6, -0.5, 5.5, 30, -1, 1)
     h_filteredE_efficiencyEnergy = ROOT.TEfficiency("g_filteredE_efficiencyEnergy", "PID efficiency (filtered E); E(GeV); Efficiency", 32, 0, 128)
     h_filteredE_efficiencyCosTheta = ROOT.TEfficiency("g_filteredE_efficiencyCosTheta", "PID efficiency (filtered E); cos(#theta); Efficiency", 30, -1, 1)
-    for axis in h_highestE_confusionEnergy.GetXaxis(), h_highestE_confusionEnergy.GetYaxis(), h_highestE_confusionCosTheta.GetXaxis(), h_highestE_confusionCosTheta.GetYaxis()\
-        , h_confusionEnergy.GetXaxis(), h_confusionEnergy.GetYaxis(), h_confusionCosTheta.GetXaxis(), h_confusionCosTheta.GetYaxis():
+    for axis in h_filteredE_confusionEnergy.GetXaxis(), h_filteredE_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetXaxis(), h_filteredE_confusionCosTheta.GetYaxis()\
+        , h_filteredE_confusionEnergy.GetYaxis(), h_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetYaxis(), h_confusionCosTheta.GetYaxis():
         for i, l in map_labels.items():
             axis.SetBinLabel(i+1, l)
             axis.SetLabelSize(0.05)
-    ### Control of the quality of the MC<->reco links: take only the highest-energetic reco and highest-energetic MC particles
-    df_highestE_confusion = df\
-        .Define("reco","ROOT::VecOps::RVec<std::pair<float,int>> result; for (auto&p: PandoraPFOs) {result.push_back(std::make_pair(p.energy,p.PDG));} return ROOT::VecOps::Sort(result,[](std::pair<float,int> x, std::pair<float,int> y){return x.first > y.first;});")\
-        .Define("recoCosTheta","ROOT::VecOps::RVec<std::pair<float,float>> result; for (auto&p: PandoraPFOs) {result.push_back(std::make_pair(p.energy,cos(TVector3(p.momentum.x,p.momentum.y,p.momentum.z).Theta())));} return ROOT::VecOps::Sort(result,[](std::pair<float,float> x, std::pair<float,float> y){return x.first > y.first;});")\
-        .Define("highestRecoPDG","reco[0].second")\
-        .Define("highestRecoE","reco[0].first")\
-        .Define("highestRecoCosTheta","recoCosTheta[0].second")\
-        .Define("mc","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(m.PDG);} return result;")\
-        .Define("mcPDG","mc[0]")
-    arrays_highestE_confusion = df_highestE_confusion.AsNumpy(columns=["mcPDG","highestRecoPDG","highestRecoE","highestRecoCosTheta"])
-    counter_highestE_passed, counter_highestE_links = 0,0
-    for iev in range(0,len(arrays_highestE_confusion["mcPDG"])):
-        if arrays_highestE_confusion["mcPDG"][iev] in map_pdgs:
-            currentMcPDG = map_pdgs[arrays_highestE_confusion["mcPDG"][iev]]
-        else:
-            currentMcPDG = 5 # others, check if not to extend map_pdgs
-        if arrays_highestE_confusion["highestRecoPDG"][iev] in map_pdgs:
-            currentRecoPDG = map_pdgs[arrays_highestE_confusion["highestRecoPDG"][iev]]
-        else:
-            currentRecoPDG = 5 # others, check if not to extend map_pdgs
-        h_highestE_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_highestE_confusion["highestRecoE"][iev])
-        h_highestE_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_highestE_confusion["highestRecoCosTheta"][iev])
-        ifCorrectPID = arrays_highestE_confusion["mcPDG"][iev] == arrays_highestE_confusion["highestRecoPDG"][iev]
-        h_highestE_efficiencyEnergy.Fill(ifCorrectPID, arrays_highestE_confusion["highestRecoE"][iev])
-        h_highestE_efficiencyCosTheta.Fill(ifCorrectPID, arrays_highestE_confusion["highestRecoCosTheta"][iev])
-        if ifCorrectPID:
-            counter_highestE_passed += 1;
-        counter_highestE_links += 1;
-    print("Done confusion for the highest E")
-
-    ### The same histograms but filled in for all particles that are linked
+    ### Fill the hists for all particles that are linked (cluster-based reco<->MC)
     df_confusion = df_reco2mc_links\
         .Define("recoMCpairs_recoPDG","ROOT::VecOps::RVec<int> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].PDG); return result;")\
         .Define("recoMCpairs_mcPDG","ROOT::VecOps::RVec<int> result; for (auto& p:recoMCpairs) result.push_back(MCParticles[p.second].PDG); return result;")\
         .Define("recoMCpairs_recoE","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy); return result;")\
+        .Define("recoMCpairs_mcE","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(getEnergy(MCParticles[p.second])); return result;")\
         .Define("recoMCpairs_recoCosTheta","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(cos(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta())); return result;")
-    arrays_confusion = df_confusion.AsNumpy(columns=["recoMCpairs_recoPDG","recoMCpairs_mcPDG", "recoMCpairs_recoE", "recoMCpairs_recoCosTheta"])
-    counter_passed, counter_links = 0,0
+    arrays_confusion = df_confusion.AsNumpy(columns=["recoMCpairs_recoPDG","recoMCpairs_mcPDG", "recoMCpairs_recoE", "recoMCpairs_recoCosTheta", "recoMCpairs_mcE"])
+    counter_passed, counter_links, counter_filteredE_passed, counter_filteredE_links = 0,0,0,0
     for iev in range(0,len(arrays_confusion["recoMCpairs_mcPDG"])):
         for ilink in range(0,len(arrays_confusion["recoMCpairs_mcPDG"][iev])):
             if arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] in map_pdgs:
@@ -263,32 +230,34 @@ def run(inputlist, outname, ncpu):
             if ifCorrectPID:
                 counter_passed += 1;
             counter_links += 1;
-            if  arrays_confusion["recoMCpairs_recoE"][iev][ilink] > filterEnergy_minThreshold and arrays_confusion["recoMCpairs_recoE"][iev][ilink] < filterEnergy_maxThreshold:
-                h_filteredE_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
+            # For the "correctly" reco particles (by only energy definition)
+            eratio = arrays_confusion["recoMCpairs_recoE"][iev][ilink] / arrays_confusion["recoMCpairs_mcE"][iev][ilink]
+            if  eratio > filterEnergy_minThreshold and eratio < filterEnergy_maxThreshold:
+                if ifCorrectPID:
+                    counter_filteredE_passed += 1;
+                counter_filteredE_links += 1;
+                h_filteredE_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
                 h_filteredE_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
-                h_filteredE_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
+                h_filteredE_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
                 h_filteredE_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
     ### Draw different projections of confusion plots
     h_confusionPIDProjection = h_confusionEnergy.Project3D("yx")
     h_confusionCosThetaProjection = h_confusionCosTheta.Project3D("yz")
     h_confusionEProjection = h_confusionEnergy.Project3D("xz")
-    h_highestE_confusionPIDProjection = h_highestE_confusionEnergy.Project3D("yx")
-    h_highestE_confusionCosThetaProjection = h_highestE_confusionCosTheta.Project3D("yz")
-    h_highestE_confusionEProjection = h_highestE_confusionEnergy.Project3D("xz")
     h_filteredE_confusionPIDProjection = h_filteredE_confusionEnergy.Project3D("yx")
     h_filteredE_confusionCosThetaProjection = h_filteredE_confusionCosTheta.Project3D("yz")
     h_filteredE_confusionEProjection = h_filteredE_confusionEnergy.Project3D("xz")
     print("Done confusion for all links")
 
-    # For total efficiency get the diagonal from PID confusion hist
-    if counter_highestE_links > 0:
-        total_highestE_efficiency = counter_highestE_passed / counter_highestE_links
-        print(f"Total efficiency (counted from the highest-energetic reco and MC particles): {total_highestE_efficiency}")
+    # For total efficiency
     if counter_links:
         total_efficiency = counter_passed / counter_links
+        filtered_efficiency = counter_filteredE_passed / counter_filteredE_links
         print(f"Total efficiency (counted from all the reco<->MC links): {total_efficiency}")
+        print(f"Filtered energy efficiency (counted from the reco<->MC links that recunstruct energy within {recoResult_resolution/recoResult_mean*100:.1f}%): {filtered_efficiency}")
 
-    ## Analyse at cell level
+    ## Analyse at cell level (cell-MC links)
+    # WARNING: hardcoded collections correspond to FcceeCLDo2v07
     ROOT.gInterpreter.Declare("""
     // For all reco particles (rows) and all MC particles (columns) get a ratio of number of cells linked to each MC
     // Calculated as ratio of intersection to union (of corresponding reco and MC particles).
@@ -511,8 +480,8 @@ def run(inputlist, outname, ncpu):
     f_recoFit.Draw("same")
     h_recoRatioE.SetTitle("Energy ratio")
     h_recoRatioE.GetXaxis().SetTitle("E_{PFO} / E_{MC}")
-    legend1 = ROOT.TLegend(0.1,0.8,0.6,0.9)
-    legend1.AddEntry(f_recoFit.GetName(),f"#mu={recoResult_mean:.1f}, #sigma={recoResult_resolution:.3f}","l")
+    legend1 = ROOT.TLegend(0.1,0.8,0.9,0.9)
+    legend1.AddEntry(f_recoFit.GetName(),f"fit defining the filter: #mu={recoResult_mean:.1f}, #sigma={recoResult_resolution:.3f}","l")
     legend1.Draw()
     canv.cd(2)
     h_diffE.Draw()
@@ -528,72 +497,48 @@ def run(inputlist, outname, ncpu):
     h_diffPhi.GetXaxis().SetTitle("#phi_{PFO} - #phi_{MC} (rad)")
 
 
-    canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco links",1600,900)
-    canvConf.Divide(3,2)
+    canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco links",2100,900)
+    canvConf.Divide(4,2)
     canvConf.cd(1)
     h_confusionPIDProjection.Draw("colztext")
     canvConf.cd(2)
     h_confusionCosThetaProjection.Draw("colztext")
     canvConf.cd(3)
     h_confusionEProjection.Draw("colztext")
+    canvConf.cd(5)
+    h_filteredE_confusionPIDProjection.Draw("colztext")
+    canvConf.cd(6)
+    h_filteredE_confusionCosThetaProjection.Draw("colztext")
+    canvConf.cd(7)
+    h_filteredE_confusionEProjection.Draw("colztext")
     pad10 = canvConf.cd(4) # Efficiency vs cosTheta
-    h_highestE_efficiencyCosTheta.SetLineColor(colours[0])
     h_efficiencyCosTheta.SetLineColor(colours[1])
     h_filteredE_efficiencyCosTheta.SetLineColor(colours[2])
-    h_highestE_efficiencyCosTheta.SetMarkerColor(colours[0])
     h_efficiencyCosTheta.SetMarkerColor(colours[1])
     h_filteredE_efficiencyCosTheta.SetMarkerColor(colours[2])
-    h_highestE_efficiencyCosTheta.SetMarkerStyle(21)
     h_efficiencyCosTheta.SetMarkerStyle(24)
     h_filteredE_efficiencyCosTheta.SetMarkerStyle(22)
-    h_highestE_efficiencyCosTheta.Draw("aep")
-    pad10.Update()
-    h_highestE_efficiencyCosTheta.GetPaintedGraph().GetYaxis().SetRangeUser(0,1.05)
-    h_efficiencyCosTheta.Draw("sameep")
+    h_efficiencyCosTheta.Draw("aep")
     h_filteredE_efficiencyCosTheta.Draw("sameep")
-    legendEffT = ROOT.TLegend(0.3,0.2,0.9,0.5)
-    legendEffT.AddEntry(h_highestE_efficiencyCosTheta.GetName(),"highest energy")
+    legendEffT = ROOT.TLegend(0.3,0.2,0.9,0.4)
     legendEffT.AddEntry(h_efficiencyCosTheta.GetName(),"all links")
     legendEffT.AddEntry(h_filteredE_efficiencyCosTheta.GetName(),"filtered energy")
     legendEffT.Draw()
-    pad11 = canvConf.cd(5) # Efficiency vs E
-    h_highestE_efficiencyEnergy.SetLineColor(colours[0])
+    pad11 = canvConf.cd(8) # Efficiency vs E
     h_efficiencyEnergy.SetLineColor(colours[1])
     h_filteredE_efficiencyEnergy.SetLineColor(colours[2])
-    h_highestE_efficiencyEnergy.SetMarkerColor(colours[0])
     h_efficiencyEnergy.SetMarkerColor(colours[1])
     h_filteredE_efficiencyEnergy.SetMarkerColor(colours[2])
-    h_highestE_efficiencyEnergy.SetMarkerStyle(21)
     h_efficiencyEnergy.SetMarkerStyle(24)
     h_filteredE_efficiencyEnergy.SetMarkerStyle(22)
-    h_highestE_efficiencyEnergy.Draw("aep")
-    pad11.Update()
-    h_highestE_efficiencyEnergy.GetPaintedGraph().GetYaxis().SetRangeUser(0,1.05)
-    h_efficiencyEnergy.Draw("sameep")
+    h_efficiencyEnergy.Draw("aep")
     h_filteredE_efficiencyEnergy.Draw("sameep")
-    legendEffE = ROOT.TLegend(0.3,0.2,0.9,0.5)
-    legendEffE.AddEntry(h_highestE_efficiencyEnergy.GetName(),"highest energy")
+    legendEffE = ROOT.TLegend(0.3,0.2,0.9,0.4)
     legendEffE.AddEntry(h_efficiencyEnergy.GetName(),"all links")
     legendEffE.AddEntry(h_filteredE_efficiencyEnergy.GetName(),"filtered energy")
     legendEffE.Draw()
     canv.Update()
     canv.SaveAs(f"recoValidation_histograms_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
-
-    canvHighest = ROOT.TCanvas("canvHighest","Reconstruction control plots for highest-energetic or filtered MC and reco particles (for particle gun events!)",900,1200)
-    canvHighest.Divide(3,2)
-    canvHighest.cd(1)
-    h_highestE_confusionPIDProjection.Draw("colztext")
-    canvHighest.cd(2)
-    h_highestE_confusionCosThetaProjection.Draw("colztext")
-    canvHighest.cd(3)
-    h_highestE_confusionEProjection.Draw("colztext")
-    canvHighest.cd(4)
-    h_filteredE_confusionPIDProjection.Draw("colztext")
-    canvHighest.cd(5)
-    h_filteredE_confusionCosThetaProjection.Draw("colztext")
-    canvHighest.cd(6)
-    h_filteredE_confusionEProjection.Draw("colztext")
-    canvHighest.SaveAs(f"recoValidation_filtered_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
 
     # Draw and store multiplicity control plots
     canvMultiplicity = ROOT.TCanvas("canvMultiplicity","Reconstruction control plots for multiplicity of MC/reco particles",1200,900)
