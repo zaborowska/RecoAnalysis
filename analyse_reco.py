@@ -27,7 +27,7 @@ ROOT.gStyle.SetOptStat(0000)
 #__________________________________________________________
 def run(inputlist, outname, ncpu):
     outname = outname
-#    ROOT.ROOT.EnableImplicitMT(ncpu)
+    ROOT.ROOT.EnableImplicitMT(ncpu)
     df = ROOT.RDataFrame("events", inputlist)
     print ("Initialization done")
 
@@ -92,128 +92,73 @@ def run(inputlist, outname, ncpu):
     ## Define links between Reco and MC particles
     ### Unlinked Reco particles are not here! TODO handle them as well
     df_reco2mc_links = df.Define("RecoIDLinked","ROOT::VecOps::RVec<int> result; for(auto l: _MCTruthRecoLink_from) {result.emplace_back(l.index);} return result;")\
-                          .Define("MCIDLinked","ROOT::VecOps::RVec<int> result; for(auto l: _MCTruthRecoLink_to) {result.emplace_back(l.index);} return result;")\
-                          .Define("RecoMCLinkWeights","ROOT::VecOps::RVec<float> result; for(auto l: MCTruthRecoLink) {result.emplace_back(l.weight);} return result;")\
-         .Define("RecoIDLinkedSize","RecoIDLinked.size()")\
-         .Define("MCIDLinkedSize","MCIDLinked.size()")\
-         .Define("RecoSize","PandoraPFOs.size()")\
-         .Define("MCSize","MCParticles.size()")\
-         .Define("MCPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:MCParticles){result.push_back(m.PDG);} return result;")\
-         .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
-         .Define("recoPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:PandoraPFOs){result.push_back(m.PDG);} return result;")\
-         .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
-         .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
-         .Define("recoMCpairs_size","recoMCpairs.size()")
+                         .Define("MCIDLinked","ROOT::VecOps::RVec<int> result; for(auto l: _MCTruthRecoLink_to) {result.emplace_back(l.index);} return result;")\
+                         .Define("RecoMCLinkWeights","ROOT::VecOps::RVec<float> result; for(auto l: MCTruthRecoLink) {result.emplace_back(l.weight);} return result;")\
+                         .Define("RecoIDLinkedSize","RecoIDLinked.size()")\
+                         .Define("MCIDLinkedSize","MCIDLinked.size()")\
+                         .Define("RecoSize","PandoraPFOs.size()")\
+                         .Define("MCSize","MCParticles.size()")\
+                         .Define("MCPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:MCParticles){result.push_back(m.PDG);} return result;")\
+                         .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
+                         .Define("recoPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:PandoraPFOs){result.push_back(m.PDG);} return result;")\
+                         .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
+                         .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
+                         .Define("recoMCpairs_size","recoMCpairs.size()")
     ### Define histograms of Delta (reco - MC)
-    h_diffMomMag = df_reco2mc_links\
-         .Define("recoMCpairs_diffE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy - getEnergy(MCParticles[p.second])); return result;")\
-         .Histo1D("recoMCpairs_diffE")
+    h_diffE = df_reco2mc_links\
+        .Define("recoMCpairs_diffE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy - getEnergy(MCParticles[p.second])); return result;")\
+        .Histo1D("recoMCpairs_diffE")
     h_diffTheta = df_reco2mc_links\
-         .Define("recoMCpairs_diffTheta", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Theta()); return result;")\
-         .Histo1D("recoMCpairs_diffTheta")
+        .Define("recoMCpairs_diffTheta", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Theta()); return result;")\
+        .Histo1D("recoMCpairs_diffTheta")
     h_diffPhi = df_reco2mc_links\
-         .Define("recoMCpairs_diffPhi", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Phi() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Phi()); return result;")\
-         .Histo1D("recoMCpairs_diffPhi")
-    print("Done links")
-    # Cell-level simualation data
-    df_sim = df\
-        .Define("edepEcalBarrel","ROOT::VecOps::RVec<float> result; for (auto&p: ECALBarrel) {result.push_back(p.energy);} return result;")\
-        .Define("sumEdepEcalBarrel","std::accumulate(edepEcalBarrel.begin(),edepEcalBarrel.end(),0.)")\
-        .Define("edepEcalEndcap","ROOT::VecOps::RVec<float> result; for (auto&p: ECALEndcap) {result.push_back(p.energy);} return result;")\
-        .Define("sumEdepEcalEndcap","std::accumulate(edepEcalEndcap.begin(),edepEcalEndcap.end(),0.)")\
-        .Define("edepHcalBarrel","ROOT::VecOps::RVec<float> result; for (auto&p: HCALBarrel) {result.push_back(p.energy);} return result;")\
-        .Define("sumEdepHcalBarrel","std::accumulate(edepHcalBarrel.begin(),edepHcalBarrel.end(),0.)")\
-        .Define("edepHcalEndcap","ROOT::VecOps::RVec<float> result; for (auto&p: HCALEndcap) {result.push_back(p.energy);} return result;")\
-        .Define("sumEdepHcalEndcap","std::accumulate(edepHcalEndcap.begin(),edepHcalEndcap.end(),0.)")\
-        .Define("sumEdep","sumEdepEcalBarrel+sumEdepEcalEndcap+sumEdepHcalBarrel+sumEdepHcalEndcap")
-    h_simE = df_sim.Histo1D(("sumEdep", "energy distribution; Energy (GeV); Entries", 128, 0., 128.),"sumEdep")
-    h_simEnergyRatio = df_sim\
-        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
-        .Define("gunMC","eMC[0]")\
-        .Define("ratio_sim","sumEdep/gunMC")\
-        .Histo1D(("sumEdep", "energy ratio; #sum E_{cells}/E_{MC[0]} [linked only]; Entries", 128, 0., 1.2),"ratio_sim") # This histogram makes sense only for particle gun events
-    gun_mean = h_simE.GetMean() #TODO fix
-    gun_rms = h_simE.GetRMS() # TODO fix
-    # Fitting Gaussian part
-    fit_pdg = {1,2,3,4}
-    h_simE.Scale(1/h_simE.Integral())
-    h_simEnergyRatio.Scale(1/h_simEnergyRatio.Integral())
-    if args.trueE:
-        f_simPrefit = ROOT.TF1("firstSimGaus","gaus", gun_mean - 3. * gun_rms, gun_mean + 3. * gun_rms)
-    else:
-        f_simPrefit = ROOT.TF1("firstSimGaus","gaus", h_simE.GetMean() - 3. * h_simE.GetRMS(), h_simE.GetMean() + 3. * h_simE.GetRMS())
-    simResult_pre = h_simE.Fit(f_simPrefit, "SRNQ")
-    if simResult_pre:
-        print("Sim pre-fit chi^2: ", simResult_pre.Chi2())
-    f_simFit = ROOT.TF1("finalSimGaus", "gaus", simResult_pre.Get().Parameter(1) - 3. * simResult_pre.Get().Parameter(2), simResult_pre.Get().Parameter(1) + 3. * simResult_pre.Get().Parameter(2) )
-    simResult = h_simE.Fit(f_simFit, "SRNQ")
-    if simResult:
-        print("Sim final fit chi^2: ", simResult.Chi2())
-    simResult_mean = simResult.Get().Parameter(1)
-    simResult_meanError = simResult.Get().Error(1)
-    simResult_resolution = simResult.Get().Parameter(2) / simResult.Get().Parameter(1)
-    tmp_resolutionErrorSigma = simResult.Get().Error(2) / simResult.Get().Parameter(1)
-    tmp_resolutionErrorMean = simResult.Get().Error(1) * simResult.Get().Parameter(2) / ( simResult.Get().Parameter(1) ** 2)
-    simResult_resolutionError = sqrt( tmp_resolutionErrorSigma ** 2 +  tmp_resolutionErrorMean ** 2 )
-    print("Simulation data: Fitting Gaussian to sum of all simulation deposits...")
-    print(f"\tmean energy <E>= {simResult_mean}\t +- {simResult_meanError}")
-    print(f"\tresolution sigma(E)= {simResult_resolution}\t +- {simResult_resolutionError}")
-    print(f"\tsampling fraction calculated as <E>/E_MC: {simResult_mean/gun_mean}\t +- {simResult_meanError/gun_mean}")
+        .Define("recoMCpairs_diffPhi", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Phi() - TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Phi()); return result;")\
+        .Histo1D("recoMCpairs_diffPhi")
+    ### Energy ratio
+    df_recoRatioE = df_reco2mc_links\
+        .Define("recoMCpairs_ratioE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy / getEnergy(MCParticles[p.second])); return result;")
+    h_recoRatioE = df_recoRatioE.Histo1D(("recoEratio", "E_{rec} / E_{MC}", 128,0.5,1.5),"recoMCpairs_ratioE")
+    h_recoRatioE.Scale(1/h_recoRatioE.Integral())
+    print("Done cluster links and basic histograms")
 
-    # Reconstructed particles, taking the highest energy PFO -> temporary validation
-    df_reco = df.Define("reco","ROOT::VecOps::RVec<std::pair<float,int>> result; for (auto&p: PandoraPFOs) {result.push_back(std::make_pair(p.energy,p.PDG));} return ROOT::VecOps::Sort(result,[](std::pair<float,int> x, std::pair<float,int> y){return x.first > y.first;});")
-    h_recoHighestE = df_reco\
-        .Define("highestRecoE","reco[0].first")\
-        .Histo1D("highestRecoE")
-    h_recoHighestEnergyRatio = df_reco\
-        .Define("eMC","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
-        .Define("ratio_reco","reco[0].first/eMC[0]")\
-        .Histo1D("ratio_reco")
-    ## reco part
-    h_recoHighestE.Scale(1/h_recoHighestE.Integral())
-    h_recoHighestEnergyRatio.Scale(1/h_recoHighestEnergyRatio.Integral())
-    if args.trueE:
-        f_recoPrefit = ROOT.TF1("firstRecoGaus","gaus", gun_mean - 3. * gun_rms, gun_mean + 3. * gun_rms)
-    else:
-        f_recoPrefit = ROOT.TF1("firstRecoGaus","gaus", h_recoHighestE.GetMean() - 3. * h_recoHighestE.GetRMS(), h_recoHighestE.GetMean() + 3. * h_recoHighestE.GetRMS())
-    recoResult_pre = h_recoHighestE.Fit(f_recoPrefit, "SRNQ")
-    if recoResult_pre:
-        print("Reco pre-fit chi^2: ", recoResult_pre.Chi2())
+    ## Fit Gaussian to ratio energy histogram
+    # Used to count correctly reconstructed particles
+    # For pgun events it can give meaningful resolution
+    f_recoPrefit = ROOT.TF1("firstRecoGaus","gaus", h_recoRatioE.GetMean() - 3. * h_recoRatioE.GetRMS(), h_recoRatioE.GetMean() + 3. * h_recoRatioE.GetRMS())
+    recoResult_pre = h_recoRatioE.Fit(f_recoPrefit, "SRNQ")
     f_recoFit = ROOT.TF1("finalRecoGaus", "gaus", recoResult_pre.Get().Parameter(1) - 3. * recoResult_pre.Get().Parameter(2), recoResult_pre.Get().Parameter(1) + 3. * recoResult_pre.Get().Parameter(2) )
-    recoResult = h_recoHighestE.Fit(f_recoFit, "SRNQ")
-    if recoResult:
-        print("Reco fit chi^2: ", recoResult.Chi2())
+    recoResult = h_recoRatioE.Fit(f_recoFit, "SRNQ")
     recoResult_mean = recoResult.Get().Parameter(1)
     recoResult_meanError = recoResult.Get().Error(1)
     recoResult_resolution = recoResult.Get().Parameter(2) / recoResult.Get().Parameter(1)
     tmp_resolutionErrorSigma = recoResult.Get().Error(2) / recoResult.Get().Parameter(1)
     tmp_resolutionErrorMean = recoResult.Get().Error(1) * recoResult.Get().Parameter(2) / ( recoResult.Get().Parameter(1) ** 2)
     recoResult_resolutionError = sqrt( tmp_resolutionErrorSigma ** 2 +  tmp_resolutionErrorMean ** 2 )
-    print("Reco data: Fitting Gaussian to the highest-energetic PFO...")
+    print("All PFOs: E_PFO / E_MC - fitting Gaussian...")
     print(f"\tmean energy <E>= {recoResult_mean}\t +- {recoResult_meanError}")
     print(f"\tresolution sigma(E)= {recoResult_resolution}\t +- {recoResult_resolutionError}")
-    print(f"\tsampling fraction calculated as <E>/E_MC: {recoResult_mean/gun_mean}\t +- {recoResult_meanError/gun_mean}")
-    print("Done for all fits/")
-    filterEnergy_minThreshold = recoResult_mean - 3 * recoResult_resolution * recoResult_mean
-    filterEnergy_maxThreshold = recoResult_mean + 3 * recoResult_resolution * recoResult_mean
-    print(f"Filtered energy from {filterEnergy_minThreshold} to {filterEnergy_maxThreshold}.")
+    print("Done fits/")
+    filterEnergy_minThreshold = recoResult_mean - 1 * recoResult_resolution * recoResult_mean
+    filterEnergy_maxThreshold = recoResult_mean + 1 * recoResult_resolution * recoResult_mean
+    print(f"Filtered energy ratio from {filterEnergy_minThreshold} to {filterEnergy_maxThreshold}.")
 
     # Multiplicities
-    df_numMC = df\
+    h_numMC = df\
         .Define("MCEnergyAbove100MeV", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){auto e = getEnergy(m); if(e > 0.1) result.push_back(e);} return result;")\
         .Define("numMC","return MCEnergyAbove100MeV.size()")\
-        .Define("MCEnergyAboveFilter", f"ROOT::VecOps::RVec<float> result; for(auto& e:MCEnergyAbove100MeV){{ if(e > {filterEnergy_minThreshold} && e < {filterEnergy_maxThreshold}) result.push_back(e);}} return result;")\
-        .Define("numMC_filteredE","return MCEnergyAboveFilter.size()")
-    h_numMC = df_numMC.Histo1D(("numMC", "Particle multiplicity; Multiplicity (>100 MeV); Entries", 32, -0.5, 31.5),"numMC")
-    h_filteredE_numMC = df_numMC.Histo1D(("numMC_filteredE", "Particle multiplicity; Multiplicity (filtered E); Entries", 32, -0.5, 31.5),"numMC_filteredE")
-    df_numReco = df\
+        .Histo1D(("numMC", "Particle multiplicity; Multiplicity (>100 MeV); Entries", 32, -0.5, 31.5),"numMC")
+    h_numReco = df\
         .Define("RecoEnergyAbove100MeV", "ROOT::VecOps::RVec<float> result; for(auto& p:PandoraPFOs){if(p.energy > 0.1) result.push_back(p.energy);} return result;")\
         .Define("numReco","return RecoEnergyAbove100MeV.size()")\
-        .Define("RecoEnergyAboveFilter", f"ROOT::VecOps::RVec<float> result; for(auto& e:RecoEnergyAbove100MeV){{ if(e > {filterEnergy_minThreshold} && e < {filterEnergy_maxThreshold}) result.push_back(e);}} return result;")\
-        .Define("numReco_filteredE","return RecoEnergyAboveFilter.size()")
-    h_numReco = df_numReco.Histo1D(("numReco", "Particle multiplicity; Multiplicity (>100 MeV); Entries", 32, -0.5, 31.5),"numReco")
-    h_filteredE_numReco = df_numReco.Histo1D(("numReco_filteredE", "Particle multiplicity; Multiplicity (>100 MeV); Entries", 32, -0.5, 31.5),"numReco_filteredE")
-    # TODO check also number of linkes
+        .Define("RecoEnergyWithinFilter", f"ROOT::VecOps::RVec<float> result; for(auto& e:RecoEnergyAbove100MeV){{ if(e > {filterEnergy_minThreshold} && e < {filterEnergy_maxThreshold}) result.push_back(e);}} return result;")\
+        .Define("numReco_filteredE","return RecoEnergyWithinFilter.size()")\
+        .Histo1D(("numReco", "Particle multiplicity; Multiplicity (>100 MeV); Entries", 32, -0.5, 31.5),"numReco")
+    h_numClusterLinks = df_reco2mc_links.Histo1D(("numRecoClusterLinks", "Particle multiplicity; Multiplicity (cluster links); Entries", 32, -0.5, 31.5),"recoMCpairs_size")
+    h_numClusterLinks_filtered = df_recoRatioE\
+        .Define("linkedEnergyRatioWithinFilter", f"ROOT::VecOps::RVec<float> result; for(auto& e:recoMCpairs_ratioE){{ if(e > {filterEnergy_minThreshold} && e < {filterEnergy_maxThreshold}) result.push_back(e);}} return result;")\
+        .Define("numLinks_filtered","return linkedEnergyRatioWithinFilter.size()")\
+        .Histo1D(("numLinks_filtered", "Particle multiplicity; Multiplicity (filtered E); Entries", 32, -0.5, 31.5),"numLinks_filtered")
+    # TODO check also number of links from cells
     print("Done multiplicities. Starting with confusion matrices")
 
     ## Confusion matrix and the projections
@@ -241,7 +186,8 @@ def run(inputlist, outname, ncpu):
             axis.SetBinLabel(i+1, l)
             axis.SetLabelSize(0.05)
     ### Control of the quality of the MC<->reco links: take only the highest-energetic reco and highest-energetic MC particles
-    df_highestE_confusion = df_reco\
+    df_highestE_confusion = df\
+        .Define("reco","ROOT::VecOps::RVec<std::pair<float,int>> result; for (auto&p: PandoraPFOs) {result.push_back(std::make_pair(p.energy,p.PDG));} return ROOT::VecOps::Sort(result,[](std::pair<float,int> x, std::pair<float,int> y){return x.first > y.first;});")\
         .Define("recoCosTheta","ROOT::VecOps::RVec<std::pair<float,float>> result; for (auto&p: PandoraPFOs) {result.push_back(std::make_pair(p.energy,cos(TVector3(p.momentum.x,p.momentum.y,p.momentum.z).Theta())));} return ROOT::VecOps::Sort(result,[](std::pair<float,float> x, std::pair<float,float> y){return x.first > y.first;});")\
         .Define("highestRecoPDG","reco[0].second")\
         .Define("highestRecoE","reco[0].first")\
@@ -343,6 +289,7 @@ def run(inputlist, outname, ncpu):
     // Calculated as ratio of intersection to union (of corresponding reco and MC particles).
     // To compare with the implementation of MLPF:
     // https://github.com/selvaggi/mlpf/blob/708747daf1c67c8ee8be9ce1dcb4485f5c8c6d55/src/layers/inference_oc.py#L992
+    // TODO Check how
     ROOT::VecOps::RVec<std::vector<float>> getMatrixReco2McFromCells(ROOT::VecOps::RVec<edm4hep::ReconstructedParticleData> reco,
                                              ROOT::VecOps::RVec<edm4hep::ClusterData> clusters,
                                              ROOT::VecOps::RVec<int> cluster_id_cells,
@@ -511,115 +458,86 @@ def run(inputlist, outname, ncpu):
     # TODO Compare above links with those from Pandora
 
     # Store
-    outfile = ROOT.TFile(outname, "RECREATE")
-    outfile.cd()
-    h_simE.Write("energy_sim")
-    h_recoHighestE.Write("energy_reco")
+    # outfile = ROOT.TFile(outname, "RECREATE")
+    # outfile.cd()
+    # h_simE.Write("energy_sim")
+    # h_recoHighestE.Write("energy_reco")
 
-    h_simEnergyRatio.Write("energy_sim_ratio")
-    store_sim_mean = numpy.zeros(1, dtype=float)
-    store_sim_meanErr = numpy.zeros(1, dtype=float)
-    store_sim_resolution = numpy.zeros(1, dtype=float)
-    store_sim_resolutionErr = numpy.zeros(1, dtype=float)
-    store_reco_mean = numpy.zeros(1, dtype=float)
-    store_reco_meanErr = numpy.zeros(1, dtype=float)
-    store_reco_resolution = numpy.zeros(1, dtype=float)
-    store_reco_resolutionErr = numpy.zeros(1, dtype=float)
-    store_EMC = numpy.zeros(1, dtype=float)
-    store_efficiency = numpy.zeros(1, dtype=float)
-    tree = ROOT.TTree("results", "Fit parameters foor single pgun analysis")
-    tree.Branch("sim_en_mean", store_sim_mean, "store_sim_mean/D");
-    tree.Branch("sim_en_meanErr", store_sim_meanErr, "store_sim_meanErr/D");
-    tree.Branch("sim_en_resolution", store_sim_resolution, "store_sim_resolution/D");
-    tree.Branch("sim_en_resolutionErr", store_sim_resolutionErr, "store_sim_resolutionErr/D");
-    tree.Branch("reco_en_mean", store_reco_mean, "store_reco_mean/D");
-    tree.Branch("reco_en_meanErr", store_reco_meanErr, "store_reco_meanErr/D");
-    tree.Branch("reco_en_resolution", store_reco_resolution, "store_reco_resolution/D");
-    tree.Branch("reco_en_resolutionErr", store_reco_resolutionErr, "store_reco_resolutionErr/D");
-    tree.Branch("enMC", store_EMC, "store_EMC/D");
-    tree.Branch("efficiency", store_efficiency, "store_efficiency/D");
-    store_sim_mean[0] = simResult_mean
-    store_sim_meanErr[0] = simResult_meanError
-    store_sim_resolution[0] = simResult_resolution
-    store_sim_resolutionErr[0] = simResult_resolutionError
-    store_reco_mean[0] = recoResult_mean
-    store_reco_meanErr[0] = recoResult_meanError
-    store_reco_resolution[0] = recoResult_resolution
-    store_reco_resolutionErr[0] = recoResult_resolutionError
-    store_EMC[0] = gun_mean
-    store_efficiency[0] = total_efficiency
-    tree.Fill()
-    tree.Write()
-    outfile.Close()
+    # h_simEnergyRatio.Write("energy_sim_ratio")
+    # store_sim_mean = numpy.zeros(1, dtype=float)
+    # store_sim_meanErr = numpy.zeros(1, dtype=float)
+    # store_sim_resolution = numpy.zeros(1, dtype=float)
+    # store_sim_resolutionErr = numpy.zeros(1, dtype=float)
+    # store_reco_mean = numpy.zeros(1, dtype=float)
+    # store_reco_meanErr = numpy.zeros(1, dtype=float)
+    # store_reco_resolution = numpy.zeros(1, dtype=float)
+    # store_reco_resolutionErr = numpy.zeros(1, dtype=float)
+    # store_EMC = numpy.zeros(1, dtype=float)
+    # store_efficiency = numpy.zeros(1, dtype=float)
+    # tree = ROOT.TTree("results", "Fit parameters foor single pgun analysis")
+    # tree.Branch("sim_en_mean", store_sim_mean, "store_sim_mean/D");
+    # tree.Branch("sim_en_meanErr", store_sim_meanErr, "store_sim_meanErr/D");
+    # tree.Branch("sim_en_resolution", store_sim_resolution, "store_sim_resolution/D");
+    # tree.Branch("sim_en_resolutionErr", store_sim_resolutionErr, "store_sim_resolutionErr/D");
+    # tree.Branch("reco_en_mean", store_reco_mean, "store_reco_mean/D");
+    # tree.Branch("reco_en_meanErr", store_reco_meanErr, "store_reco_meanErr/D");
+    # tree.Branch("reco_en_resolution", store_reco_resolution, "store_reco_resolution/D");
+    # tree.Branch("reco_en_resolutionErr", store_reco_resolutionErr, "store_reco_resolutionErr/D");
+    # tree.Branch("enMC", store_EMC, "store_EMC/D");
+    # tree.Branch("efficiency", store_efficiency, "store_efficiency/D");
+    # store_sim_mean[0] = simResult_mean
+    # store_sim_meanErr[0] = simResult_meanError
+    # store_sim_resolution[0] = simResult_resolution
+    # store_sim_resolutionErr[0] = simResult_resolutionError
+    # store_reco_mean[0] = recoResult_mean
+    # store_reco_meanErr[0] = recoResult_meanError
+    # store_reco_resolution[0] = recoResult_resolution
+    # store_reco_resolutionErr[0] = recoResult_resolutionError
+    # store_EMC[0] = gun_mean
+    # store_efficiency[0] = total_efficiency
+    # tree.Fill()
+    # tree.Write()
+    # outfile.Close()
 
     ## Draw
     # once we use root 6.34colours = [ROOT.kP6Blue, ROOT.kP6Yellow, ROOT.kP6Red, ROOT.kP6Grape, ROOT.kP6Gray]
     colours = [ROOT.kAzure+1, ROOT.kOrange-2, ROOT.kRed-4, ROOT.kMagenta-2, ROOT.kGray+1]
-    canv = ROOT.TCanvas("canv","Reconstruction control plots for MC<->reco links",1800,1200)
-    canv.Divide(6,2)
+    canv = ROOT.TCanvas("canv","Basic reconstruction control plots for MC<->reco links",1200,900)
+    canv.Divide(2,2)
     canv.cd(1) # draw energy distributions
-    h_simE.SetLineColor(colours[0])
-    h_simE.SetFillColor(colours[0])
-    f_simFit.SetLineColor(colours[0])
-    h_recoHighestE.SetLineColor(colours[1])
-    h_recoHighestE.SetFillColor(colours[1])
-    f_recoFit.SetLineColor(colours[1])
-    h_simE.Draw()
-    h_recoHighestE.Draw("same")
-    f_simFit.Draw("same")
+    h_recoRatioE.SetLineColor(colours[0])
+    h_recoRatioE.SetFillColor(colours[0])
+    f_recoFit.SetLineColor(colours[0])
+    h_recoRatioE.Draw()
     f_recoFit.Draw("same")
-    h_simE.SetTitle("Energy")
-    h_simE.GetXaxis().SetTitle("Energy (GeV)")
-    legend1 = ROOT.TLegend(0.1,0.5,0.6,0.9)
-    legend1.AddEntry(h_simE.GetName(),"Sum all sim deposits","lep")
-    legend1.AddEntry(h_recoHighestE.GetName(),"Reco (highest E)","lep")
-    legend1.AddEntry(f_simFit.GetName(),f"Fit to sim #mu={simResult_mean:.1f}, #sigma={simResult_resolution:.3f}","l")
-    legend1.AddEntry(f_recoFit.GetName(),f"Fit to reco #mu={recoResult_mean:.1f}, #sigma={recoResult_resolution:.3f}","l")
+    h_recoRatioE.SetTitle("Energy ratio")
+    h_recoRatioE.GetXaxis().SetTitle("E_{PFO} / E_{MC}")
+    legend1 = ROOT.TLegend(0.1,0.8,0.6,0.9)
+    legend1.AddEntry(f_recoFit.GetName(),f"#mu={recoResult_mean:.1f}, #sigma={recoResult_resolution:.3f}","l")
     legend1.Draw()
-    canv.cd(2)  # draw energy RATIO distributions
-    h_simEnergyRatio.SetLineColor(colours[0])
-    h_recoHighestEnergyRatio.SetLineColor(colours[1])
-    h_simEnergyRatio.Draw()
-    h_simEnergyRatio.GetXaxis().SetTitle("energy / E_{MC}")
-    h_recoHighestEnergyRatio.Draw("same")
-    h_simEnergyRatio.SetTitle("Energy ratio")
-    legend2 = ROOT.TLegend(0.1,0.5,0.6,0.9)
-    legend2.AddEntry(h_simEnergyRatio.GetName(),"Sum all sim deposits","lep")
-    legend2.AddEntry(h_recoHighestEnergyRatio.GetName(),"Reco (highest E)","lep")
-    legend2.Draw()
+    canv.cd(2)
+    h_diffE.Draw()
+    h_diffE.SetTitle("Energy difference")
+    h_diffE.GetXaxis().SetTitle("E_{PFO} - E_{MC} (GeV)")
     canv.cd(3)
-    h_diffMomMag.Draw()
-    canv.cd(4)
     h_diffTheta.Draw()
-    canv.cd(5)
+    h_diffTheta.SetTitle("#theta difference")
+    h_diffTheta.GetXaxis().SetTitle("#theta_{PFO} - #theta_{MC} (rad)")
+    canv.cd(4)
     h_diffPhi.Draw()
-    padNum = canv.cd(6)
-    h_numMC.SetLineColor(colours[0])
-    h_numMC.SetFillColor(colours[0])
-    h_numReco.SetLineColor(colours[1])
-    h_numReco.SetLineWidth(2)
-    h_filteredE_numMC.SetLineColor(colours[2])
-    h_filteredE_numMC.SetLineWidth(2)
-    h_filteredE_numReco.SetLineColor(colours[3])
-    h_filteredE_numReco.SetLineWidth(2)
-    padNum.SetLogy()
-    h_numMC.Draw()
-    h_numReco.Draw("same")
-    h_filteredE_numMC.Draw("same")
-    h_filteredE_numReco.Draw("same")
-    legend3 = ROOT.TLegend(0.3,0.7,0.9,0.9)
-    legend3.AddEntry(h_numMC.GetName(),"MC > 100 MeV")
-    legend3.AddEntry(h_numReco.GetName(),"reco > 100 MeV")
-    legend3.AddEntry(h_filteredE_numMC.GetName(),f"MC #in ({filterEnergy_minThreshold:.1f},{filterEnergy_maxThreshold:.1f}) GeV")
-    legend3.AddEntry(h_filteredE_numReco.GetName(),f"reco #in ({filterEnergy_minThreshold:.1f},{filterEnergy_maxThreshold:.1f}) GeV")
-    legend3.Draw()
-    canv.cd(7)
+    h_diffPhi.SetTitle("#phi difference")
+    h_diffPhi.GetXaxis().SetTitle("#phi_{PFO} - #phi_{MC} (rad)")
+
+
+    canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco links",1600,900)
+    canvConf.Divide(3,2)
+    canvConf.cd(1)
     h_confusionPIDProjection.Draw("colztext")
-    canv.cd(8)
+    canvConf.cd(2)
     h_confusionCosThetaProjection.Draw("colztext")
-    canv.cd(9)
+    canvConf.cd(3)
     h_confusionEProjection.Draw("colztext")
-    pad10 = canv.cd(10) # Efficiency vs cosTheta
+    pad10 = canvConf.cd(4) # Efficiency vs cosTheta
     h_highestE_efficiencyCosTheta.SetLineColor(colours[0])
     h_efficiencyCosTheta.SetLineColor(colours[1])
     h_filteredE_efficiencyCosTheta.SetLineColor(colours[2])
@@ -639,7 +557,7 @@ def run(inputlist, outname, ncpu):
     legendEffT.AddEntry(h_efficiencyCosTheta.GetName(),"all links")
     legendEffT.AddEntry(h_filteredE_efficiencyCosTheta.GetName(),"filtered energy")
     legendEffT.Draw()
-    pad11 = canv.cd(11) # Efficiency vs E
+    pad11 = canvConf.cd(5) # Efficiency vs E
     h_highestE_efficiencyEnergy.SetLineColor(colours[0])
     h_efficiencyEnergy.SetLineColor(colours[1])
     h_filteredE_efficiencyEnergy.SetLineColor(colours[2])
@@ -661,6 +579,7 @@ def run(inputlist, outname, ncpu):
     legendEffE.Draw()
     canv.Update()
     canv.SaveAs(f"recoValidation_histograms_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
+
     canvHighest = ROOT.TCanvas("canvHighest","Reconstruction control plots for highest-energetic or filtered MC and reco particles (for particle gun events!)",900,1200)
     canvHighest.Divide(3,2)
     canvHighest.cd(1)
@@ -676,16 +595,41 @@ def run(inputlist, outname, ncpu):
     canvHighest.cd(6)
     h_filteredE_confusionEProjection.Draw("colztext")
     canvHighest.SaveAs(f"recoValidation_filtered_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
-    canvCells = ROOT.TCanvas("canvCells","Reconstruction control plots for cells in the reco particle",900,1200)
-    canvCells.Divide(3,2)
-    canvCells.cd(1)
+
+    # Draw and store multiplicity control plots
+    canvMultiplicity = ROOT.TCanvas("canvMultiplicity","Reconstruction control plots for multiplicity of MC/reco particles",1200,900)
+    canvMultiplicity.Divide(2,2)
+    canvMultiplicity.cd(1)
     h_numClusters.Draw()
-    canvCells.cd(2)
+    canvMultiplicity.cd(2)
     h_numCells.Draw()
-    canvCells.cd(3)
+    padNum = canvMultiplicity.cd(3)
+    h_numMC.SetLineColor(colours[0])
+    h_numMC.SetFillColor(colours[0])
+    h_numReco.SetLineColor(colours[1])
+    h_numReco.SetLineWidth(2)
+    padNum.SetLogy()
+    h_numMC.Draw()
+    h_numReco.Draw("same")
+    h_numClusterLinks.Draw("same")
+    legend3 = ROOT.TLegend(0.3,0.7,0.9,0.9)
+    legend3.AddEntry(h_numMC.GetName(),"MC > 100 MeV")
+    legend3.AddEntry(h_numReco.GetName(),"reco > 100 MeV")
+    legend3.Draw()
+    padNum2 = canvMultiplicity.cd(4)
+    padNum2.SetLogy()
+    h_numClusterLinks.SetLineColor(colours[0])
+    h_numClusterLinks.SetLineWidth(2)
+    h_numClusterLinks_filtered.SetLineColor(colours[1])
+    h_numClusterLinks_filtered.SetLineWidth(2)
+    h_numClusterLinks.Draw()
+    h_numClusterLinks_filtered.Draw("same")
+    legend4 = ROOT.TLegend(0.3,0.7,0.9,0.9)
+    legend4.AddEntry(h_numClusterLinks.GetName(),f"all cluster links reco<->MC")
+    legend4.AddEntry(h_numClusterLinks_filtered.GetName(),f"cluster links E_{{PFO}} #in ({recoResult_mean:.1f}#pm{recoResult_resolution/recoResult_mean*100:.1f}%) E_{{MC}} ")
+    legend4.Draw()
     if args.interactive:
         input("")
-
 
 if __name__ == "__main__":
 
