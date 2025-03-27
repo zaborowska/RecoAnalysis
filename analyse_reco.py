@@ -23,6 +23,7 @@ ROOT.gInterpreter.Declare("#include <edm4hep/RecoMCParticleLinkCollection.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/CaloHitMCParticleLinkCollection.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/ClusterData.h>")
 ROOT.gInterpreter.Declare("#include <edm4hep/RecoMCParticleLinkData.h>")
+ROOT.gInterpreter.Declare("#include <edm4hep/utils/bit_utils.h>")
 ROOT.gStyle.SetOptStat(0000)
 #__________________________________________________________
 def run(inputlist, outname, ncpu):
@@ -105,6 +106,14 @@ def run(inputlist, outname, ncpu):
                          .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
                          .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
                          .Define("recoMCpairs_size","recoMCpairs.size()")
+    ### Test if paricle gun is used, true if primary distrib is within 1% of the mean
+    df_primaryEnergy = df_reco2mc_links.Define("MCPrimaryEnergy","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){if(!edm4hep::utils::checkBit(m.simulatorStatus,30)) result.push_back(getEnergy(m));} return result;")
+    primaryEnergy_mean = df_primaryEnergy.Mean("MCPrimaryEnergy").GetValue()
+    primaryEnergy_stddev = df_primaryEnergy.StdDev("MCPrimaryEnergy").GetValue()
+    ifPgun = False
+    if primaryEnergy_stddev / primaryEnergy_mean < 0.01:
+        ifPgun = True
+    print(f'Testing if particle gun: {ifPgun}.   Primary MCs: mean = {primaryEnergy_mean}, stddev = {primaryEnergy_stddev}')
     ### Define histograms of Delta (reco - MC)
     h_diffE = df_reco2mc_links\
         .Define("recoMCpairs_diffE", "ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy - getEnergy(MCParticles[p.second])); return result;")\
@@ -494,7 +503,9 @@ def run(inputlist, outname, ncpu):
     store_reco_meanErr[0] = recoResult_meanError
     store_reco_resolution[0] = recoResult_resolution
     store_reco_resolutionErr[0] = recoResult_resolutionError
-    store_EMC[0] = -1 # TODO check energy for pgun (or take it from MCParticles??)
+    store_EMC[0] = -1
+    if ifPgun:
+        store_EMC[0] = primaryEnergy_mean
     store_total_efficiency[0] = total_efficiency
     tree.Fill()
     tree.Write()
