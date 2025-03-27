@@ -11,7 +11,7 @@ parser.add_argument('-o', '--outfile', type=str, default="showerAnalysis.root", 
 parser.add_argument('-n', '--ncpus', type=int, default=2, help='Number of CPUs to use in analysis')
 parser.add_argument('--trueE', action='store_true', help='Fit e res around true particle energy taken a the first MC particle in the list of particles, a way to go if the default hist mean fails')
 parser.add_argument('--interactive', action='store_true', help='Pause to inspect a canvas')
-parser.add_argument('--verbose', action='store_true', help='Verbose output for debugging')
+parser.add_argument('-v', '--verbose', type=int, default=0, help='Verbose output for debugging (0=none, 1=info, 2=detailed info)')
 args = parser.parse_args()
 
 ROOT.gSystem.Load("libedm4hep")
@@ -100,6 +100,7 @@ def run(inputlist, outname, ncpu):
                          .Define("MCSize","MCParticles.size()")\
                          .Define("MCPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:MCParticles){result.push_back(m.PDG);} return result;")\
                          .Define("MCEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles){result.push_back(getEnergy(m));} return result;")\
+                         .Define("MCCosTheta","ROOT::VecOps::RVec<float> result; for(auto& m:MCParticles) result.push_back(cos(TVector3(m.momentum.x,m.momentum.y,m.momentum.z).Theta())); return result;")\
                          .Define("recoPDG", "ROOT::VecOps::RVec<int> result; for(auto& m:PandoraPFOs){result.push_back(m.PDG);} return result;")\
                          .Define("recoEnergy", "ROOT::VecOps::RVec<float> result; for(auto& m:PandoraPFOs){result.push_back(m.energy);} return result;")\
                          .Define("recoMCpairs","getMapReco2McFromClusters(RecoIDLinked, MCIDLinked, PandoraPFOs, MCParticles, MCTruthRecoLink)")\
@@ -213,8 +214,9 @@ def run(inputlist, outname, ncpu):
         .Define("recoMCpairs_mcPDG","ROOT::VecOps::RVec<int> result; for (auto& p:recoMCpairs) result.push_back(MCParticles[p.second].PDG); return result;")\
         .Define("recoMCpairs_recoE","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(PandoraPFOs[p.first].energy); return result;")\
         .Define("recoMCpairs_mcE","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(getEnergy(MCParticles[p.second])); return result;")\
-        .Define("recoMCpairs_recoCosTheta","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(cos(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta())); return result;")
-    arrays_confusion = df_confusion.AsNumpy(columns=["recoMCpairs_recoPDG","recoMCpairs_mcPDG", "recoMCpairs_recoE", "recoMCpairs_recoCosTheta", "recoMCpairs_mcE"])
+        .Define("recoMCpairs_recoCosTheta","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(cos(TVector3(PandoraPFOs[p.first].momentum.x,PandoraPFOs[p.first].momentum.y,PandoraPFOs[p.first].momentum.z).Theta())); return result;")\
+        .Define("recoMCpairs_mcCosTheta","ROOT::VecOps::RVec<float> result; for (auto& p:recoMCpairs) result.push_back(cos(TVector3(MCParticles[p.second].momentum.x,MCParticles[p.second].momentum.y,MCParticles[p.second].momentum.z).Theta())); return result;")
+    arrays_confusion = df_confusion.AsNumpy(columns=["recoMCpairs_recoPDG","recoMCpairs_mcPDG", "recoMCpairs_recoE", "recoMCpairs_recoCosTheta", "recoMCpairs_mcE", "recoMCpairs_mcCosTheta"])
     counter_passed, counter_links, counter_filteredE_passed, counter_filteredE_links = 0,0,0,0
     for iev in range(0,len(arrays_confusion["recoMCpairs_mcPDG"])):
         for ilink in range(0,len(arrays_confusion["recoMCpairs_mcPDG"][iev])):
@@ -227,11 +229,11 @@ def run(inputlist, outname, ncpu):
             else:
                 currentRecoPDG = 5 # others, check if not to extend map_pdgs
             # Fill in histograms with data
-            h_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
-            h_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+            h_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
+            h_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_mcCosTheta"][iev][ilink])
             ifCorrectPID = arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] == arrays_confusion["recoMCpairs_recoPDG"][iev][ilink]
-            h_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
-            h_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+            h_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
+            h_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_mcCosTheta"][iev][ilink])
             if ifCorrectPID:
                 counter_passed += 1;
             counter_links += 1;
@@ -242,10 +244,10 @@ def run(inputlist, outname, ncpu):
                     counter_filteredE_passed += 1;
                 counter_filteredE_links += 1;
                 h_filteredE_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
-                h_filteredE_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+                h_filteredE_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_mcCosTheta"][iev][ilink])
                 h_filteredE_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_mcE"][iev][ilink])
-                h_filteredE_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
-    ### Draw different projections of confusion plots
+                h_filteredE_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_mcCosTheta"][iev][ilink])
+    ### Define different projections of confusion plots
     h_confusionPIDProjection = h_confusionEnergy.Project3D("yx")
     h_confusionCosThetaProjection = h_confusionCosTheta.Project3D("yz")
     h_confusionEProjection = h_confusionEnergy.Project3D("yz")
@@ -359,6 +361,7 @@ def run(inputlist, outname, ncpu):
     map_reco2mc_mcIDs = df_reco2mc_links.AsNumpy(columns=["MCIDLinked"])["MCIDLinked"]
     list_reco_pdg = df_reco2mc_links.AsNumpy(columns=["recoPDG"])["recoPDG"]
     list_reco_E = df_reco2mc_links.AsNumpy(columns=["recoEnergy"])["recoEnergy"]
+    list_mc_cosTheta = df_reco2mc_links.AsNumpy(columns=["MCCosTheta"])["MCCosTheta"]
     list_mc_pdg = df_reco2mc_links.AsNumpy(columns=["MCPDG"])["MCPDG"]
     list_mc_E = df_reco2mc_links.AsNumpy(columns=["MCEnergy"])["MCEnergy"]
     map_cluster2mc = df_reco2mc_links.AsNumpy(columns=["recoMCpairs"])["recoMCpairs"]
@@ -389,31 +392,50 @@ def run(inputlist, outname, ncpu):
         for rec in range(len(map_cluster2mc[i])):
             matched_cluster[map_cluster2mc[i][rec].first][map_cluster2mc[i][rec].second] = 1
         # Fill in confusion matrices
-    # for event:
-    #   for link:
-    #      getMappedMC, MappedReco:
-    #        if arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] in map_pdgs:
-    #            currentMcPDG = map_pdgs[arrays_confusion["recoMCpairs_mcPDG"][iev][ilink]]
-    #        else:
-    #            currentMcPDG = 5 # others, check if not to extend map_pdgs
-    #        if arrays_confusion["recoMCpairs_recoPDG"][iev][ilink] in map_pdgs:
-    #            currentRecoPDG = map_pdgs[arrays_confusion["recoMCpairs_recoPDG"][iev][ilink]]
-    #        else:
-    #            currentRecoPDG = 5 # others, check if not to extend map_pdgs
-    #        and fill histograms:
-    #        h_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
-    #        h_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
-    #        ifCorrectPID = arrays_confusion["recoMCpairs_mcPDG"][iev][ilink] == arrays_confusion["recoMCpairs_recoPDG"][iev][ilink]
-    #        h_efficiencyEnergy.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoE"][iev][ilink])
-    #        h_efficiencyCosTheta.Fill(ifCorrectPID, arrays_confusion["recoMCpairs_recoCosTheta"][iev][ilink])
+        for r,c in zip (row_ind, col_ind):
+            if list_mc_pdg[i][int(c)] in map_pdgs:
+                currentMcPDG = map_pdgs[list_mc_pdg[i][int(c)]]
+            else:
+                currentMcPDG = 5 # others, check if not to extend map_pdgs
+            if list_reco_pdg[i][int(r)] in map_pdgs:
+                currentRecoPDG = map_pdgs[list_reco_pdg[i][int(r)]]
+            else:
+                currentRecoPDG = 5 # others, check if not to extend map_pdgs
+            h_cellMC_confusionEnergy.Fill(currentMcPDG, currentRecoPDG, list_mc_E[i][int(r)])
+            h_cellMC_confusionCosTheta.Fill(currentMcPDG, currentRecoPDG, list_mc_cosTheta[i][int(r)])
+            ifCorrectPID = list_mc_pdg[i][int(c)] == list_reco_pdg[i][int(r)]
+            h_cellMC_efficiencyEnergy.Fill(ifCorrectPID, list_mc_E[i][int(r)])
+            h_cellMC_efficiencyCosTheta.Fill(ifCorrectPID, list_mc_cosTheta[i][int(r)])
         # Compare individual cluster-level links to cell-level links
         if (matched_cell == matched_cluster).all():
-            if args.verbose:
+            if args.verbose > 0:
                 print("\033[38;5;28mAll linkes match!\033[0m")
+            if args.verbose > 1:
+                array_to_print=[]
+                header_to_print = [""]
+                mc_threshold = 0.1 #GeV
+                below_threshold = 0
+                for r in range(numpy.shape(matched_cell)[0]):
+                    row_to_print = [f"{list_reco_pdg[i][int(map_cluster2mc[i][r].first)]}, {list_reco_E[i][int(map_cluster2mc[i][r].first)]:.1f} GeV"]
+                    for c in range(numpy.shape(matched_cell)[1] - 1): # -1 to ignore the "fakes"
+                        if list_mc_E[i][c] > mc_threshold:
+                            if matched_cell[r][c] == matched_cluster[r][c]:
+                                row_to_print.append( f" \033[38;5;28m{matched_cluster[r][c]:.0f}\033[0m ")
+                            else:
+                                row_to_print.append( f" \033[38;5;1m{matched_cell[r][c]:.0f}\033[0m(cell) \033[38;5;1m{matched_cluster[r][c]:.0f}\033[0m(cluster) ")
+                    row_to_print.append("") # to display the MCs below threshold"
+                    array_to_print.append(row_to_print)
+                for mc in range(len(list_mc_E[i])):
+                    if list_mc_E[i][mc] > mc_threshold:
+                        header_to_print.append(f'{list_mc_pdg[i][mc]}, {list_mc_E[i][mc]:.1f} GeV')
+                    else:
+                        below_threshold += 1
+                header_to_print.append(f"and {below_threshold} MCs < {mc_threshold:.1f} GeV")
+                print(tabulate(array_to_print, headers=header_to_print))
             counter_match_all_cell_cluster_links += 1
         else:
             list_mismatch_cell_cluster_links.append(i)
-            if args.verbose:
+            if args.verbose>0:
                 print("\033[38;5;1mCell/cluster link discrepancy!\033[0m")
                 array_to_print=[]
                 header_to_print = [""]
@@ -437,6 +459,9 @@ def run(inputlist, outname, ncpu):
                 header_to_print.append(f"and {below_threshold} MCs < {mc_threshold:.1f} GeV")
                 print(tabulate(array_to_print, headers=header_to_print))
 
+    h_cellMC_confusionPIDProjection = h_cellMC_confusionEnergy.Project3D("yx")
+    h_cellMC_confusionCosThetaProjection = h_cellMC_confusionCosTheta.Project3D("yz")
+    h_cellMC_confusionEProjection = h_cellMC_confusionEnergy.Project3D("yz")
     print(f"Ratio of events with identical links between clusters and cells: {counter_match_all_cell_cluster_links/len(list_reco_E)}")
 
 
@@ -519,7 +544,7 @@ def run(inputlist, outname, ncpu):
     h_diffPhi.GetXaxis().SetTitle("#phi_{PFO} - #phi_{MC} (rad)")
 
 
-    canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco links",2100,900)
+    canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco cluster links",2100,900)
     canvConf.Divide(4,2)
     canvConf.cd(1)
     h_confusionPIDProjection.Draw("colztext")
@@ -541,6 +566,8 @@ def run(inputlist, outname, ncpu):
     h_efficiencyCosTheta.SetMarkerStyle(24)
     h_filteredE_efficiencyCosTheta.SetMarkerStyle(22)
     h_efficiencyCosTheta.Draw("aep")
+    pad10.Update()
+    h_efficiencyCosTheta.GetPaintedGraph().GetYaxis().SetRangeUser(0.5,1.05)
     h_filteredE_efficiencyCosTheta.Draw("sameep")
     legendEffT = ROOT.TLegend(0.3,0.2,0.9,0.4)
     legendEffT.AddEntry(h_efficiencyCosTheta.GetName(),"all links")
@@ -554,13 +581,64 @@ def run(inputlist, outname, ncpu):
     h_efficiencyEnergy.SetMarkerStyle(24)
     h_filteredE_efficiencyEnergy.SetMarkerStyle(22)
     h_efficiencyEnergy.Draw("aep")
+    pad11.Update()
+    h_efficiencyEnergy.GetPaintedGraph().GetYaxis().SetRangeUser(0.5,1.05)
     h_filteredE_efficiencyEnergy.Draw("sameep")
     legendEffE = ROOT.TLegend(0.3,0.2,0.9,0.4)
     legendEffE.AddEntry(h_efficiencyEnergy.GetName(),"all links")
     legendEffE.AddEntry(h_filteredE_efficiencyEnergy.GetName(),"filtered energy")
     legendEffE.Draw()
-    canv.Update()
-    canv.SaveAs(f"recoValidation_histograms_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
+    canvConf.Update()
+    canvConf.SaveAs(f"recoValidation_clusterConfusion_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
+
+    canvCellConf = ROOT.TCanvas("canvCellConf","Reconstruction control plots for MC<->reco cell links",2100,900)
+    canvCellConf.Divide(4,2)
+    canvCellConf.cd(1)
+    h_cellMC_confusionPIDProjection.Draw("colztext")
+    canvCellConf.cd(2)
+    h_cellMC_confusionCosThetaProjection.Draw("colztext")
+    canvCellConf.cd(3)
+    h_cellMC_confusionEProjection.Draw("colztext")
+    canvCellConf.cd(5)
+    h_cellMC_confusionEnergy.Draw("colz")
+    #h_filteredE_confusionPIDProjection.Draw("colztext")
+    canvCellConf.cd(6)
+    h_cellMC_confusionCosTheta.Draw("colz")
+    #h_filteredE_confusionCosThetaProjection.Draw("colztext")
+    canvCellConf.cd(7)
+    #h_filteredE_confusionEProjection.Draw("colztext")
+    pad10 = canvCellConf.cd(4) # Efficiency vs cosTheta
+    h_cellMC_efficiencyCosTheta.SetLineColor(colours[1])
+    #h_filteredE_efficiencyCosTheta.SetLineColor(colours[2])
+    h_cellMC_efficiencyCosTheta.SetMarkerColor(colours[1])
+    #h_filteredE_efficiencyCosTheta.SetMarkerColor(colours[2])
+    h_cellMC_efficiencyCosTheta.SetMarkerStyle(24)
+    #h_filteredE_efficiencyCosTheta.SetMarkerStyle(22)
+    h_cellMC_efficiencyCosTheta.Draw("aep")
+    pad10.Update()
+    h_cellMC_efficiencyCosTheta.GetPaintedGraph().GetYaxis().SetRangeUser(0.5,1.05)
+    #h_filteredE_efficiencyCosTheta.Draw("sameep")
+    legendEffT = ROOT.TLegend(0.3,0.2,0.9,0.4)
+    legendEffT.AddEntry(h_cellMC_efficiencyCosTheta.GetName(),"all cell-derived links")
+    #legendEffT.AddEntry(h_filteredE_efficiencyCosTheta.GetName(),"filtered energy")
+    legendEffT.Draw()
+    pad11 = canvCellConf.cd(8) # Efficiency vs E
+    h_cellMC_efficiencyEnergy.SetLineColor(colours[1])
+    #h_filteredE_efficiencyEnergy.SetLineColor(colours[2])
+    h_cellMC_efficiencyEnergy.SetMarkerColor(colours[1])
+    #h_filteredE_efficiencyEnergy.SetMarkerColor(colours[2])
+    h_cellMC_efficiencyEnergy.SetMarkerStyle(24)
+    #h_filteredE_efficiencyEnergy.SetMarkerStyle(22)
+    h_cellMC_efficiencyEnergy.Draw("aep")
+    pad11.Update()
+    h_cellMC_efficiencyEnergy.GetPaintedGraph().GetYaxis().SetRangeUser(0.5,1.05)
+    #h_filteredE_efficiencyEnergy.Draw("sameep")
+    legendEffE = ROOT.TLegend(0.3,0.2,0.9,0.4)
+    legendEffE.AddEntry(h_cellMC_efficiencyEnergy.GetName(),"all cell-derived links")
+    #legendEffE.AddEntry(h_filteredE_efficiencyEnergy.GetName(),"filtered energy")
+    legendEffE.Draw()
+    canvCellConf.Update()
+    canvCellConf.SaveAs(f"recoValidation_cellConfusion_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
 
     # Draw and store multiplicity control plots
     canvMultiplicity = ROOT.TCanvas("canvMultiplicity","Reconstruction control plots for multiplicity of MC/reco particles",1200,900)
@@ -594,6 +672,8 @@ def run(inputlist, outname, ncpu):
     legend4.AddEntry(h_numClusterLinks.GetName(),f"all cluster links reco<->MC")
     legend4.AddEntry(h_numClusterLinks_filtered.GetName(),f"cluster links E_{{PFO}} #in ({recoResult_mean:.1f}#pm{recoResult_resolution/recoResult_mean*100:.1f}%) E_{{MC}} ")
     legend4.Draw()
+    canvMultiplicity.Update()
+    canvMultiplicity.SaveAs(f"recoValidation_multiplicities_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
     if args.interactive:
         input("")
 
