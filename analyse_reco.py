@@ -473,46 +473,32 @@ def run(inputlist, outname, ncpu):
         print(f"Filtered energy efficiency (counted from the reco<->MC links that recunstruct energy within {recoResult_resolution/recoResult_mean*100:.1f}%): {filtered_efficiency}")
 
     # Store
-    # outfile = ROOT.TFile(outname, "RECREATE")
-    # outfile.cd()
-    # h_simE.Write("energy_sim")
-    # h_recoHighestE.Write("energy_reco")
+    outfile = ROOT.TFile(outname, "RECREATE")
+    outfile.cd()
 
-    # h_simEnergyRatio.Write("energy_sim_ratio")
-    # store_sim_mean = numpy.zeros(1, dtype=float)
-    # store_sim_meanErr = numpy.zeros(1, dtype=float)
-    # store_sim_resolution = numpy.zeros(1, dtype=float)
-    # store_sim_resolutionErr = numpy.zeros(1, dtype=float)
-    # store_reco_mean = numpy.zeros(1, dtype=float)
-    # store_reco_meanErr = numpy.zeros(1, dtype=float)
-    # store_reco_resolution = numpy.zeros(1, dtype=float)
-    # store_reco_resolutionErr = numpy.zeros(1, dtype=float)
-    # store_EMC = numpy.zeros(1, dtype=float)
-    # store_efficiency = numpy.zeros(1, dtype=float)
-    # tree = ROOT.TTree("results", "Fit parameters foor single pgun analysis")
-    # tree.Branch("sim_en_mean", store_sim_mean, "store_sim_mean/D");
-    # tree.Branch("sim_en_meanErr", store_sim_meanErr, "store_sim_meanErr/D");
-    # tree.Branch("sim_en_resolution", store_sim_resolution, "store_sim_resolution/D");
-    # tree.Branch("sim_en_resolutionErr", store_sim_resolutionErr, "store_sim_resolutionErr/D");
-    # tree.Branch("reco_en_mean", store_reco_mean, "store_reco_mean/D");
-    # tree.Branch("reco_en_meanErr", store_reco_meanErr, "store_reco_meanErr/D");
-    # tree.Branch("reco_en_resolution", store_reco_resolution, "store_reco_resolution/D");
-    # tree.Branch("reco_en_resolutionErr", store_reco_resolutionErr, "store_reco_resolutionErr/D");
-    # tree.Branch("enMC", store_EMC, "store_EMC/D");
-    # tree.Branch("efficiency", store_efficiency, "store_efficiency/D");
-    # store_sim_mean[0] = simResult_mean
-    # store_sim_meanErr[0] = simResult_meanError
-    # store_sim_resolution[0] = simResult_resolution
-    # store_sim_resolutionErr[0] = simResult_resolutionError
-    # store_reco_mean[0] = recoResult_mean
-    # store_reco_meanErr[0] = recoResult_meanError
-    # store_reco_resolution[0] = recoResult_resolution
-    # store_reco_resolutionErr[0] = recoResult_resolutionError
-    # store_EMC[0] = gun_mean
-    # store_efficiency[0] = total_efficiency
-    # tree.Fill()
-    # tree.Write()
-    # outfile.Close()
+    h_recoRatioE.Write("recoEnergyResolution")
+    store_reco_mean = numpy.zeros(1, dtype=float)
+    store_reco_meanErr = numpy.zeros(1, dtype=float)
+    store_reco_resolution = numpy.zeros(1, dtype=float)
+    store_reco_resolutionErr = numpy.zeros(1, dtype=float)
+    store_EMC = numpy.zeros(1, dtype=float)
+    store_total_efficiency = numpy.zeros(1, dtype=float)
+    tree = ROOT.TTree("results", "Fit parameters and basic parameters")
+    tree.Branch("reco_en_mean", store_reco_mean, "store_reco_mean/D");
+    tree.Branch("reco_en_meanErr", store_reco_meanErr, "store_reco_meanErr/D");
+    tree.Branch("reco_en_resolution", store_reco_resolution, "store_reco_resolution/D");
+    tree.Branch("reco_en_resolutionErr", store_reco_resolutionErr, "store_reco_resolutionErr/D");
+    tree.Branch("MC_en", store_EMC, "store_EMC/D");
+    tree.Branch("total_efficiency", store_total_efficiency, "store_total_efficiency/D");
+    store_reco_mean[0] = recoResult_mean
+    store_reco_meanErr[0] = recoResult_meanError
+    store_reco_resolution[0] = recoResult_resolution
+    store_reco_resolutionErr[0] = recoResult_resolutionError
+    store_EMC[0] = -1 # TODO check energy for pgun (or take it from MCParticles??)
+    store_total_efficiency[0] = total_efficiency
+    tree.Fill()
+    tree.Write()
+    outfile.Close()
 
     ## Draw
     # once we use root 6.34colours = [ROOT.kP6Blue, ROOT.kP6Yellow, ROOT.kP6Red, ROOT.kP6Grape, ROOT.kP6Gray]
