@@ -203,9 +203,7 @@ def run(inputlist, outname, ncpu):
     h_cellMC_efficiencyCosTheta = ROOT.TEfficiency("g_cellMC_efficiencyCosTheta", "PID efficiency; cos(#theta); Efficiency", 30, -1, 1)
     for axis in h_confusionEnergy.GetXaxis(), h_confusionEnergy.GetYaxis(), h_confusionCosTheta.GetXaxis(), h_confusionCosTheta.GetYaxis()\
         , h_filteredE_confusionEnergy.GetXaxis(), h_filteredE_confusionEnergy.GetYaxis(), h_filteredE_confusionCosTheta.GetXaxis(), h_filteredE_confusionCosTheta.GetYaxis()\
-        , h_cellMC_confusionEnergy.GetXaxis(), h_cellMC_confusionEnergy.GetYaxis(), h_cellMC_confusionCosTheta.GetXaxis(), h_cellMC_confusionCosTheta.GetYaxis()\
-        , h_efficiencyEnergy.GetYaxis(), h_efficiencyCosTheta.GetYaxis(), h_filteredE_efficiencyEnergy.GetYaxis(), h_filteredE_efficiencyCosTheta.GetYaxis()\
-        , h_cellMC_efficiencyEnergy.GetYaxis(), h_cellMC_efficiencyCosTheta.GetYaxis():
+        , h_cellMC_confusionEnergy.GetXaxis(), h_cellMC_confusionEnergy.GetYaxis(), h_cellMC_confusionCosTheta.GetXaxis(), h_cellMC_confusionCosTheta.GetYaxis():
         for i, l in map_labels.items():
             axis.SetBinLabel(i+1, l)
             axis.SetLabelSize(0.05)
@@ -250,10 +248,10 @@ def run(inputlist, outname, ncpu):
     ### Draw different projections of confusion plots
     h_confusionPIDProjection = h_confusionEnergy.Project3D("yx")
     h_confusionCosThetaProjection = h_confusionCosTheta.Project3D("yz")
-    h_confusionEProjection = h_confusionEnergy.Project3D("xz")
+    h_confusionEProjection = h_confusionEnergy.Project3D("yz")
     h_filteredE_confusionPIDProjection = h_filteredE_confusionEnergy.Project3D("yx")
     h_filteredE_confusionCosThetaProjection = h_filteredE_confusionCosTheta.Project3D("yz")
-    h_filteredE_confusionEProjection = h_filteredE_confusionEnergy.Project3D("xz")
+    h_filteredE_confusionEProjection = h_filteredE_confusionEnergy.Project3D("yz")
     print("Done confusion for all links")
 
     ## Analyse links at cell level (cell-MC links) instead of taking them from clusters
