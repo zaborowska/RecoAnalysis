@@ -542,6 +542,8 @@ def run(inputlist, outname, ncpu):
     h_diffPhi.Draw()
     h_diffPhi.SetTitle("#phi difference")
     h_diffPhi.GetXaxis().SetTitle("#phi_{PFO} - #phi_{MC} (rad)")
+    canv.Update()
+    canv.SaveAs(f"recoValidation_diffs_{inputlist[0].split('/')[-1:][0][:-5]}.pdf")
 
 
     canvConf = ROOT.TCanvas("canvConf","Reconstruction control plots for MC<->reco cluster links",2100,900)
